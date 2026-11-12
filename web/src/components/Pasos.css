@@ -1,0 +1,20 @@
+.pasos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-5);
+  padding: 0 0 var(--space-3);
+  list-style: none;
+  border-bottom: var(--border);
+  font-size: var(--font-size-small);
+  color: var(--color-gray-600);
+}
+
+.pasos__paso--actual {
+  color: var(--color-navy);
+  font-weight: 600;
+}
+
+.pasos__paso--hecho {
+  color: var(--color-navy);
+}

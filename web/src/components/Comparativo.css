@@ -1,0 +1,126 @@
+.comparativo {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-3);
+}
+
+.comparativo th,
+.comparativo td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+  border: var(--border);
+}
+
+.comparativo th {
+  background: var(--color-gray-50);
+  font-weight: 600;
+  font-size: var(--font-size-small);
+}
+
+.comparativo__numero {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.comparativo__seleccion {
+  width: 44px;
+  text-align: center !important;
+}
+
+.comparativo__seleccion input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-navy);
+}
+
+.comparativo tr.comparativo__fila--marcada td {
+  background: var(--color-gray-50);
+}
+
+.comparativo__aseguradora {
+  font-weight: 600;
+}
+
+.comparativo__nota {
+  display: block;
+  font-weight: 400;
+  font-size: var(--font-size-small);
+  color: var(--color-gray-600);
+}
+
+.comparativo__amparos {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.comparativo__faltantes {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-small);
+  color: var(--color-gray-600);
+}
+
+.amparos {
+  margin: var(--space-4) 0 0;
+  max-width: 760px;
+}
+
+.amparos dt {
+  font-weight: 600;
+}
+
+.amparos dd {
+  margin: 0 0 var(--space-2);
+  color: var(--color-gray-600);
+}
+
+@media (max-width: 640px) {
+  .comparativo thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .comparativo,
+  .comparativo tbody,
+  .comparativo tr,
+  .comparativo td {
+    display: block;
+    width: 100%;
+  }
+
+  .comparativo tr {
+    margin-bottom: var(--space-3);
+    border: var(--border);
+  }
+
+  .comparativo td {
+    border: 0;
+    border-bottom: var(--border);
+  }
+
+  .comparativo td:last-child {
+    border-bottom: 0;
+  }
+
+  .comparativo td[data-etiqueta]::before {
+    content: attr(data-etiqueta);
+    display: block;
+    font-size: var(--font-size-small);
+    color: var(--color-gray-600);
+  }
+
+  .comparativo__numero {
+    text-align: left !important;
+  }
+
+  .comparativo td.comparativo__seleccion {
+    float: left;
+    width: 44px;
+    border-bottom: 0;
+    padding-top: var(--space-3);
+  }
+}

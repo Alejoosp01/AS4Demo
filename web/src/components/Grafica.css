@@ -1,0 +1,100 @@
+.grafica {
+  margin: 0;
+}
+
+.grafica svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-family);
+}
+
+.grafica__eje {
+  font-size: 11px;
+  fill: var(--color-gray-600);
+}
+
+.grafica__categoria {
+  fill: var(--color-navy);
+}
+
+.grafica__valor {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--color-navy);
+}
+
+.grafica__guia {
+  stroke: var(--color-gray-100);
+  stroke-width: 1;
+}
+
+.grafica__base {
+  stroke: var(--color-gray-400);
+  stroke-width: 1;
+}
+
+.grafica__umbral {
+  stroke: var(--color-amber);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-small);
+}
+
+.leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leyenda__marca {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+}
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4) var(--space-6);
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-5);
+  border-top: var(--border);
+}
+
+.panel > h2 {
+  flex: 1 0 100%;
+  margin: 0;
+}
+
+.panel > .descripcion {
+  flex: 1 0 100%;
+  margin: calc(-1 * var(--space-3)) 0 0;
+  color: var(--color-gray-600);
+  font-size: var(--font-size-small);
+}
+
+.panel__grafica {
+  flex: 3 1 360px;
+  min-width: 0;
+  max-width: 640px;
+}
+
+.panel__tabla {
+  flex: 2 1 280px;
+  min-width: 0;
+}
+
+.panel__tabla .tabla-contenedor {
+  margin-bottom: 0;
+}

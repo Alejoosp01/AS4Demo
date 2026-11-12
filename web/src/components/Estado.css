@@ -1,0 +1,22 @@
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.estado::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-estado, var(--color-gray-400));
+  flex: none;
+}
+
+.estado--nueva { --color-estado: var(--color-blue); }
+.estado--cotizada { --color-estado: var(--color-navy); }
+.estado--asesorada { --color-estado: var(--color-amber); }
+.estado--aceptada { --color-estado: var(--color-green); }
+.estado--no_interesada { --color-estado: var(--color-gray-400); }
+.estado--emitida { --color-estado: #1d4d33; }

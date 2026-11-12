@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ASESOR
+  GERENTE
+}
+
+enum Ramo {
+  AUTOS
+  SALUD
+  VIDA
+  HOGAR
+  PYMES
+}
+
+enum EstadoSolicitud {
+  NUEVA
+  COTIZADA
+  ASESORADA
+  ACEPTADA
+  NO_INTERESADA
+  EMITIDA
+}
+
+enum MotivoNoInteres {
+  PRECIO
+  COBERTURA
+  YA_TENGO_SEGURO
+  LO_VOY_A_PENSAR
+  OTRO
+}
+
+enum EstadoRenovacion {
+  PENDIENTE
+  RENOVADA
+  NO_RENOVADA
+}
+
+enum TipoPqr {
+  PETICION
+  QUEJA
+  RECLAMO
+}
+
+model Usuario {
+  id          Int         @id @default(autoincrement())
+  nombre      String
+  correo      String      @unique
+  claveHash   String
+  rol         Rol
+  solicitudes Solicitud[]
+  asesorias   Asesoria[]
+}
+
+model Aseguradora {
+  id          Int      @id @default(autoincrement())
+  codigo      String   @unique
+  nombre      String
+  // La comisión solo se usa en informes de gerencia; el comparativo no la lee.
+  comisionPct Float
+  activa      Boolean  @default(true)
+  ofertas     Oferta[]
+}
+
+model Solicitud {
+  id               Int              @id @default(autoincrement())
+  token            String           @unique
+  ramo             Ramo
+  estado           EstadoSolicitud  @default(NUEVA)
+  nombre           String
+  tipoDocumento    String
+  numeroDocumento  String
+  correo           String
+  telefono         String
+  autorizaDatos    Boolean
+  autorizaDatosEn  DateTime
+  datosRamo        Json?
+  sarlaft          Json?
+  motivoNoInteres  MotivoNoInteres?
+  detalleNoInteres String?
+  asesorId         Int?
+  asesor           Usuario?         @relation(fields: [asesorId], references: [id])
+  creadaEn         DateTime         @default(now())
+  actualizadaEn    DateTime         @updatedAt
+  ofertas          Oferta[]
+  aceptacion       Aceptacion?
+  asesoria         Asesoria?
+  poliza           Poliza?
+  pqrs             Pqr[]
+
+  @@index([estado])
+  @@index([ramo])
+  @@index([creadaEn])
+}
+
+model Oferta {
+  id               Int         @id @default(autoincrement())
+  solicitudId      Int
+  solicitud        Solicitud   @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  aseguradoraId    Int
+  aseguradora      Aseguradora @relation(fields: [aseguradoraId], references: [id])
+  primaAnual       Int
+  deducible        String
+  coberturas       Json
+  puntajeCobertura Int
+  elegida          Boolean     @default(false)
+  aceptacion       Aceptacion?
+  poliza           Poliza?
+  asesorias        Asesoria[]
+
+  @@unique([solicitudId, aseguradoraId])
+}
+
+model Aceptacion {
+  id           Int       @id @default(autoincrement())
+  solicitudId  Int       @unique
+  solicitud    Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  ofertaId     Int       @unique
+  oferta       Oferta    @relation(fields: [ofertaId], references: [id])
+  codigo       String
+  generadaEn   DateTime  @default(now())
+  confirmadaEn DateTime?
+}
+
+model Asesoria {
+  id                  Int       @id @default(autoincrement())
+  solicitudId         Int       @unique
+  solicitud           Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  asesorId            Int
+  asesor              Usuario   @relation(fields: [asesorId], references: [id])
+  ofertaRecomendadaId Int?
+  ofertaRecomendada   Oferta?   @relation(fields: [ofertaRecomendadaId], references: [id])
+  criterio            String
+  creadaEn            DateTime  @default(now())
+}
+
+model Poliza {
+  id               Int              @id @default(autoincrement())
+  solicitudId      Int              @unique
+  solicitud        Solicitud        @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  ofertaId         Int              @unique
+  oferta           Oferta           @relation(fields: [ofertaId], references: [id])
+  numero           String           @unique
+  fechaEmision     DateTime
+  fechaVencimiento DateTime
+  estadoRenovacion EstadoRenovacion @default(PENDIENTE)
+  siniestros       Siniestro[]
+
+  @@index([fechaVencimiento])
+}
+
+model Siniestro {
+  id           Int      @id @default(autoincrement())
+  polizaId     Int
+  poliza       Poliza   @relation(fields: [polizaId], references: [id], onDelete: Cascade)
+  fechaReporte DateTime
+  descripcion  String
+
+  @@index([fechaReporte])
+}
+
+model Pqr {
+  id          Int        @id @default(autoincrement())
+  ramo        Ramo
+  tipo        TipoPqr
+  fecha       DateTime
+  asunto      String
+  solicitudId Int?
+  solicitud   Solicitud? @relation(fields: [solicitudId], references: [id], onDelete: SetNull)
+
+  @@index([fecha])
+}
