@@ -1,10 +1,14 @@
+import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { nombreDe, obtenerCatalogos } from "../../api/cliente";
 import { type Renovacion, marcarRenovacion, obtenerRenovaciones } from "../../api/interno";
 import type { Catalogos } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
+import { useAviso } from "../../components/Avisos";
 import { Boton } from "../../components/Boton";
+import { Esqueleto } from "../../components/Esqueleto";
+import { Icono } from "../../components/Icono";
 import { fecha, pesos, variacion } from "../../format/formato";
 import "../../components/Tabla.css";
 import "./Asesor.css";
@@ -67,7 +71,7 @@ export function Renovaciones() {
   const [lista, setLista] = useState<Renovacion[] | null>(null);
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
   const [error, setError] = useState("");
-  const [aviso, setAviso] = useState("");
+  const avisar = useAviso();
 
   const cargar = useCallback(() => {
     obtenerRenovaciones().then(setLista).catch((e: Error) => setError(e.message));
@@ -82,7 +86,7 @@ export function Renovaciones() {
     setError("");
     try {
       await marcarRenovacion(r.id, estado);
-      setAviso(`Póliza ${r.numero} marcada como ${estado === "RENOVADA" ? "renovada" : "no renovada"}.`);
+      avisar(`Póliza ${r.numero} marcada como ${estado === "RENOVADA" ? "renovada" : "no renovada"}.`);
       cargar();
     } catch (e) {
       setError((e as Error).message);
@@ -100,11 +104,11 @@ export function Renovaciones() {
         a usted le queda llamarlo, resolver sus dudas y registrar el resultado. Están ordenadas por vencimiento.
       </p>
       {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
-      {aviso ? <div role="status"><Aviso><p>{aviso}</p></Aviso></div> : null}
+      {!lista && !error ? <Esqueleto filas={3} alto={170} /> : null}
       {lista && lista.length === 0 ? <p>No hay pólizas por vencer en los próximos 30 días.</p> : null}
 
-      {lista?.map((r) => (
-        <article key={r.id} className="renovacion" aria-labelledby={`renovacion-${r.id}`}>
+      {lista?.map((r, i) => (
+        <article key={r.id} className="renovacion en-cascada" style={{ "--i": i } as React.CSSProperties} aria-labelledby={`renovacion-${r.id}`}>
           <header className="renovacion__cabecera">
             <div>
               <h2 id={`renovacion-${r.id}`}>{r.tomador}</h2>
@@ -121,7 +125,7 @@ export function Renovaciones() {
           <Propuesta r={r} />
 
           <div className="renovacion__acciones no-imprimir">
-            <a className="boton boton--secundario boton--compacto" href={`tel:${r.telefono}`}>Llamar al {r.telefono}</a>
+            <a className="boton boton--secundario boton--compacto" href={`tel:${r.telefono}`}><Icono nombre="telefono" tamano={15} />Llamar al {r.telefono}</a>
             <span className="renovacion__resultado">
               <span className="texto-secundario">Resultado de la gestión:</span>
               <Boton className="boton--compacto" variante="principal" onClick={() => marcar(r, "RENOVADA")} aria-label={`Marcar ${r.numero} como renovada`}>Renovada</Boton>

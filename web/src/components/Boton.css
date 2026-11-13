@@ -12,6 +12,26 @@
   text-decoration: none;
 }
 
+.boton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(31, 56, 100, 0.18);
+}
+
+.boton:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
+.boton--enlace:hover:not(:disabled),
+.boton--enlace:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.boton .icono {
+  margin-right: 6px;
+}
+
 .boton:disabled {
   opacity: 0.6;
   cursor: default;

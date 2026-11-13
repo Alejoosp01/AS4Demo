@@ -17,7 +17,9 @@
 }
 
 .menu ul a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   color: var(--color-navy);
   text-decoration: none;
@@ -26,6 +28,7 @@
 
 .menu ul a:hover {
   background: var(--color-gray-100);
+  padding-left: calc(var(--space-4) + 3px);
 }
 
 .menu ul a.active {

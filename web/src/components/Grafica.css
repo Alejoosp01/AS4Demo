@@ -98,3 +98,23 @@
 .panel__tabla .tabla-contenedor {
   margin-bottom: 0;
 }
+
+.panel {
+  animation: aparecer 0.45s ease-out both;
+}
+
+.panel:nth-of-type(2) { animation-delay: 70ms; }
+.panel:nth-of-type(3) { animation-delay: 140ms; }
+.panel:nth-of-type(4) { animation-delay: 210ms; }
+.panel:nth-of-type(5) { animation-delay: 280ms; }
+.panel:nth-of-type(6) { animation-delay: 350ms; }
+
+.grafica rect,
+.grafica circle {
+  transition: opacity 0.15s ease;
+}
+
+.grafica rect:hover,
+.grafica circle:hover {
+  opacity: 0.75;
+}

@@ -88,3 +88,20 @@
 .cabecera-pagina h1 {
   margin: 0;
 }
+
+.tabla-contenedor {
+  transition: opacity 0.2s ease;
+}
+
+.tabla-contenedor--cargando {
+  opacity: 0.5;
+}
+
+/* Toda la fila lleva al detalle; el enlace del nombre sigue siendo el acceso por teclado. */
+.tabla--filas-enlace tbody tr {
+  cursor: pointer;
+}
+
+.tabla--filas-enlace tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-blue);
+}

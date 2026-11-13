@@ -17,7 +17,7 @@ function LayoutCliente({ children }: { children: ReactNode }) {
   return (
     <>
       <TopBar />
-      <main className="cliente">{children}</main>
+      <main className="cliente pagina">{children}</main>
     </>
   );
 }

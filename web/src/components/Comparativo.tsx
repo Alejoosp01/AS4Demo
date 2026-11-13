@@ -43,7 +43,7 @@ export function Comparativo({ ofertas, seleccion, recomendadaId, paraAsesor }: C
               const faltantes = o.coberturas.filter((c) => !c.incluida);
               const marcada = seleccion ? seleccion.valor === o.id : o.elegida;
               return (
-                <tr key={o.id} className={marcada ? "comparativo__fila--marcada" : undefined}>
+                <tr key={o.id} className={marcada ? "comparativo__fila--marcada" : undefined} onClick={seleccion ? () => seleccion.onCambiar(o.id) : undefined}>
                   {seleccion ? (
                     <td className="comparativo__seleccion">
                       <input

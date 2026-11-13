@@ -1,9 +1,13 @@
+import type React from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { nombreDe, obtenerCatalogos } from "../../api/cliente";
 import { type Resumen, type TareaResumen, obtenerResumen } from "../../api/interno";
 import type { Catalogos } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
+import { Esqueleto } from "../../components/Esqueleto";
+import { Icono, type NombreIcono } from "../../components/Icono";
+import { useConteo } from "../../hooks/useConteo";
 import { useSesion } from "../../sesion/Sesion";
 import "./Asesor.css";
 
@@ -14,6 +18,29 @@ const PROCESO = [
   { quien: "Cliente", que: "Acepta una oferta con su código o indica por qué no continúa." },
   { quien: "Usted", que: "Emite la póliza y acompaña al cliente en siniestros y renovaciones." },
 ];
+
+const ICONOS: Record<string, NombreIcono> = {
+  EMITIR_POLIZA: "poliza",
+  REGISTRAR_ASESORIA: "asesoria",
+  CONTACTAR_CLIENTE: "telefono",
+  GESTIONAR_RENOVACION: "renovar",
+};
+
+/** Indicador de una tarea: lleva al bloque correspondiente de la lista. */
+function Indicador({ tarea, orden }: { tarea: TareaResumen; orden: number }) {
+  const total = useConteo(tarea.total);
+  const contenido = (
+    <>
+      <span className="indicador__icono"><Icono nombre={ICONOS[tarea.codigo] ?? "lista"} tamano={22} /></span>
+      <span className="indicador__total">{total}</span>
+      <span className="indicador__nombre">{tarea.titulo}</span>
+    </>
+  );
+  const estilo = { "--i": orden } as React.CSSProperties;
+  return tarea.total > 0
+    ? <a className="indicador en-cascada" style={estilo} href={`#bloque-${tarea.codigo}`}>{contenido}</a>
+    : <div className="indicador indicador--al-dia en-cascada" style={estilo}>{contenido}</div>;
+}
 
 function saludo(): string {
   const hora = new Date().getHours();
@@ -27,7 +54,7 @@ function destino(tarea: TareaResumen, solicitudId: number): string {
 function Tarea({ tarea, orden, catalogos }: { tarea: TareaResumen; orden: number; catalogos: Catalogos | null }) {
   const verTodas = tarea.codigo === "GESTIONAR_RENOVACION" ? "/asesor/renovaciones" : `/asesor/solicitudes?${tarea.filtro}`;
   return (
-    <section className="tarea" aria-labelledby={`tarea-${tarea.codigo}`}>
+    <section className="tarea en-cascada" id={`bloque-${tarea.codigo}`} style={{ "--i": orden + 3 } as React.CSSProperties} aria-labelledby={`tarea-${tarea.codigo}`}>
       <header className="tarea__cabecera">
         <span className="tarea__orden" aria-hidden="true">{orden}</span>
         <div>
@@ -47,7 +74,7 @@ function Tarea({ tarea, orden, catalogos }: { tarea: TareaResumen; orden: number
             {e.urgente ? <span className="etiqueta etiqueta--urgente">Prioridad</span> : null}
             <Link className="boton boton--principal boton--compacto" to={destino(tarea, e.solicitudId)}
               aria-label={`${tarea.accion}: ${e.nombre}`}>
-              {tarea.accion}
+              {tarea.accion}<Icono nombre="flecha" tamano={15} />
             </Link>
           </li>
         ))}
@@ -79,7 +106,7 @@ export function Inicio() {
       <div className="inicio__principal">
         <h1>{saludo()}, {nombre}</h1>
         {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
-        {!resumen && !error ? <p className="texto-secundario">Cargando sus tareas…</p> : null}
+        {!resumen && !error ? <Esqueleto filas={3} alto={150} /> : null}
 
         {resumen ? (
           <>
@@ -88,6 +115,10 @@ export function Inicio() {
                 ? "No tiene tareas pendientes. La plataforma le avisará aquí cuando un cliente lo necesite."
                 : `Tiene ${resumen.totalPendientes} ${resumen.totalPendientes === 1 ? "tarea pendiente" : "tareas pendientes"}. Están en orden de prioridad: empiece por la primera.`}
             </p>
+
+            <div className="indicadores">
+              {resumen.tareas.map((t, i) => <Indicador key={t.codigo} tarea={t} orden={i} />)}
+            </div>
 
             {conTrabajo.map((t, i) => <Tarea key={t.codigo} tarea={t} orden={i + 1} catalogos={catalogos} />)}
 

@@ -1,3 +1,4 @@
+import type React from "react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { nombreDe, obtenerCatalogos } from "../../api/cliente";
@@ -6,9 +7,12 @@ import { emitirPoliza, guardarAsesoria, obtenerSolicitudInterna } from "../../ap
 import type { Catalogos, SolicitudInterna } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
+import { useAviso } from "../../components/Avisos";
 import { AreaTexto, Campo } from "../../components/Campo";
 import { Comparativo } from "../../components/Comparativo";
+import { Esqueleto } from "../../components/Esqueleto";
 import { Estado } from "../../components/Estado";
+import { Icono } from "../../components/Icono";
 import { useSesion } from "../../sesion/Sesion";
 import { fecha, fechaHora, hace, pesos } from "../../format/formato";
 import { datosRiesgo, datosSarlaft } from "./datosRiesgo";
@@ -50,7 +54,7 @@ function Recorrido({ solicitud }: { solicitud: SolicitudInterna }) {
     <>
       <ol className="recorrido" aria-label="Avance de la solicitud">
         {pasos.map((p, i) => (
-          <li key={p.nombre} className={`recorrido__paso recorrido__paso--${p.estado}`} aria-current={p.estado === "actual" ? "step" : undefined}>
+          <li key={p.nombre} className={`recorrido__paso recorrido__paso--${p.estado} en-cascada`} style={{ "--i": i } as React.CSSProperties} aria-current={p.estado === "actual" ? "step" : undefined}>
             <span className="recorrido__numero" aria-hidden="true">{p.estado === "hecho" ? "✓" : i + 1}</span>
             <span className="recorrido__nombre">{p.nombre}</span>
             <span className="recorrido__quien">
@@ -72,6 +76,7 @@ function Recorrido({ solicitud }: { solicitud: SolicitudInterna }) {
 
 function Contacto({ solicitud, mensaje }: { solicitud: SolicitudInterna; mensaje: string }) {
   const [copiado, setCopiado] = useState(false);
+  const avisar = useAviso();
   const enlace = `${window.location.origin}/solicitud/${solicitud.token}`;
   const { telefono, correo } = solicitud.tomador;
   const texto = `${mensaje} ${enlace}`;
@@ -79,12 +84,13 @@ function Contacto({ solicitud, mensaje }: { solicitud: SolicitudInterna; mensaje
   async function copiar() {
     await navigator.clipboard?.writeText(enlace).catch(() => undefined);
     setCopiado(true);
+    avisar("Enlace copiado. Ya puede pegarlo en el mensaje al cliente.");
   }
 
   return (
     <div className="contacto no-imprimir">
       <div className="contacto__acciones">
-        <a className="boton boton--principal" href={`tel:${telefono}`}>Llamar al {telefono}</a>
+        <a className="boton boton--principal" href={`tel:${telefono}`}><Icono nombre="telefono" tamano={17} />Llamar al {telefono}</a>
         {telefono.startsWith("3") ? (
           <a className="boton boton--secundario" href={`https://wa.me/57${telefono}?text=${encodeURIComponent(texto)}`} target="_blank" rel="noreferrer">
             Escribir por WhatsApp
@@ -163,12 +169,16 @@ function FormularioAsesoria({ solicitud, onGuardada }: { solicitud: SolicitudInt
       </div>
       <AreaTexto id="criterio" etiqueta="Criterio de la recomendación" ayuda={`Mínimo ${CRITERIO_MINIMO} caracteres.`}
         value={criterio} onChange={(e) => setCriterio(e.target.value)} error={errores.criterio} maxLength={2000} rows={4} />
+      <div className="progreso" aria-hidden="true">
+        <div className={`progreso__barra${largo >= CRITERIO_MINIMO ? " progreso__barra--ok" : ""}`}
+          style={{ width: `${Math.min(100, (largo / CRITERIO_MINIMO) * 100)}%` }} />
+      </div>
       <p className={`contador${largo >= CRITERIO_MINIMO ? " contador--ok" : ""}`} aria-live="polite">
-        {largo} de {CRITERIO_MINIMO} caracteres mínimos
+        {largo >= CRITERIO_MINIMO ? <Icono nombre="ok" tamano={15} /> : null} {largo} de {CRITERIO_MINIMO} caracteres mínimos
       </p>
 
       <div className="acciones">
-        <Boton type="submit" variante="principal" disabled={enviando}>Guardar asesoría</Boton>
+        <Boton type="submit" variante="principal" disabled={enviando}>{enviando ? <span className="girador" aria-hidden="true" /> : null}Guardar asesoría</Boton>
         <span className="texto-secundario" aria-live="polite">
           {faltan.length > 0
             ? `Falta ${faltan.join(" y ")}.`
@@ -224,7 +234,7 @@ function FormularioEmision({ solicitud, onEmitida }: { solicitud: SolicitudInter
         <Campo id="fechaVencimiento" etiqueta="Fecha de vencimiento" ayuda="Se propone un año de vigencia" type="date" value={vencimiento}
           onChange={(e) => setVencimiento(e.target.value)} error={errores.fechaVencimiento} />
       </div>
-      <Boton type="submit" variante="principal" disabled={enviando}>Marcar como emitida</Boton>
+      <Boton type="submit" variante="principal" disabled={enviando}>{enviando ? <span className="girador" aria-hidden="true" /> : null}Marcar como emitida</Boton>
     </form>
   );
 }
@@ -287,7 +297,7 @@ function PanelQueSigue({ solicitud, onCambio }: { solicitud: SolicitudInterna; o
   }
 
   return (
-    <section id="que-sigue" className={`panel-sigue panel-sigue--${paso.responsable.toLowerCase()}`} aria-labelledby="titulo-sigue">
+    <section id="que-sigue" key={paso.codigo} className={`panel-sigue panel-sigue--${paso.responsable.toLowerCase()} pagina`} aria-labelledby="titulo-sigue">
       <p className="panel-sigue__quien">Qué sigue · {quien}</p>
       <h2 id="titulo-sigue">{paso.titulo}</h2>
       {paso.descripcion ? <p className="panel-sigue__descripcion">{paso.descripcion}</p> : null}
@@ -324,7 +334,7 @@ function Bitacora({ solicitud }: { solicitud: SolicitudInterna }) {
       <p className="texto-secundario">Cada paso y cada aviso automático quedan registrados.</p>
       <ol className="bitacora">
         {eventos.map((e, i) => (
-          <li key={i} className={e.autor === "Plataforma" ? "bitacora--plataforma" : undefined}>
+          <li key={i} className={`en-cascada${e.autor === "Plataforma" ? " bitacora--plataforma" : ""}`} style={{ "--i": i + 2 } as React.CSSProperties}>
             <span className="bitacora__meta">{fechaHora(e.creadoEn)} · {e.autor}</span>
             {e.detalle}
           </li>
@@ -340,11 +350,10 @@ export function DetalleSolicitud() {
   const [solicitud, setSolicitud] = useState<SolicitudInterna | null>(null);
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
   const [error, setError] = useState("");
-  const [guardado, setGuardado] = useState("");
+  const avisar = useAviso();
 
   useEffect(() => {
     setSolicitud(null);
-    setGuardado("");
     Promise.all([obtenerSolicitudInterna(id), obtenerCatalogos()])
       .then(([s, c]) => { setSolicitud(s); setCatalogos(c); })
       .catch((e: Error) => setError(e.message));
@@ -356,7 +365,7 @@ export function DetalleSolicitud() {
   }, [cargada, hash]);
 
   if (error) return <Aviso tipo="error"><p>{error}</p><p><Link to="/asesor/solicitudes">Volver a las solicitudes</Link></p></Aviso>;
-  if (!solicitud || !catalogos) return <p className="texto-secundario">Cargando la solicitud…</p>;
+  if (!solicitud || !catalogos) return <Esqueleto filas={3} alto={110} />;
 
   const s = solicitud;
   const elegida = s.ofertas.find((o) => o.id === s.aceptacion?.ofertaId);
@@ -364,7 +373,7 @@ export function DetalleSolicitud() {
   const asesorando = s.siguientePaso.codigo === "REGISTRAR_ASESORIA";
 
   function alGuardar(nueva: SolicitudInterna) {
-    setGuardado(nueva.estado === "EMITIDA" ? "Póliza registrada. La solicitud quedó emitida." : "Asesoría guardada. El cliente ya la ve en su comparativo.");
+    avisar(nueva.estado === "EMITIDA" ? "Póliza registrada. La solicitud quedó emitida." : "Asesoría guardada. El cliente ya la ve en su comparativo.");
     setSolicitud(nueva);
     window.scrollTo(0, 0);
   }
@@ -381,8 +390,6 @@ export function DetalleSolicitud() {
       </p>
 
       <Recorrido solicitud={s} />
-
-      {guardado ? <div role="status"><Aviso><p>{guardado}</p></Aviso></div> : null}
 
       <div className="detalle">
         <div className="detalle__principal">

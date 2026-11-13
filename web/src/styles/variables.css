@@ -28,8 +28,9 @@
   --font-size-title: 26px;
   --font-size-subtitle: 20px;
 
-  --radius: 4px;
-  --sombra: 0 1px 2px rgba(31, 56, 100, 0.08);
+  --radius: 8px;
+  --sombra: 0 1px 3px rgba(31, 56, 100, 0.1);
+  --sombra-alta: 0 8px 24px rgba(31, 56, 100, 0.16);
   --border: 1px solid var(--color-gray-200);
 
   --space-1: 4px;
@@ -107,5 +108,80 @@ a {
 @media print {
   .no-imprimir {
     display: none !important;
+  }
+}
+
+/* ---------- Movimiento ---------- */
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes brillo {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+/* Cada página entra con un desplazamiento corto. */
+.pagina {
+  animation: aparecer 0.35s ease-out both;
+}
+
+/* Los elementos de una lista entran uno tras otro; --i es su posición. */
+.en-cascada {
+  animation: aparecer 0.4s ease-out both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.icono {
+  flex: none;
+  vertical-align: -4px;
+}
+
+.esqueleto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.esqueleto__bloque {
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--color-gray-50) 25%, var(--color-blue-50) 50%, var(--color-gray-50) 75%);
+  background-size: 200% 100%;
+  animation: brillo 1.4s linear infinite;
+}
+
+.girador {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: var(--space-2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: var(--color-white);
+  border-radius: 50%;
+  animation: girar 0.7s linear infinite;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

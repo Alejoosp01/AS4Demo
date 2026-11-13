@@ -1,11 +1,12 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { nombreDe, obtenerCatalogos } from "../../api/cliente";
 import { type Bandeja as DatosBandeja, obtenerBandeja } from "../../api/interno";
 import type { Catalogos } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { Campo, Selector } from "../../components/Campo";
+import { Esqueleto } from "../../components/Esqueleto";
 import { Estado, OPCIONES_ESTADO } from "../../components/Estado";
 import { fecha } from "../../format/formato";
 import { QueSigue } from "./QueSigue";
@@ -26,6 +27,8 @@ export function Bandeja() {
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
   const [error, setError] = useState("");
   const [texto, setTexto] = useState(params.get("q") ?? "");
+  const [cargando, setCargando] = useState(true);
+  const navegar = useNavigate();
 
   useEffect(() => {
     obtenerCatalogos().then(setCatalogos).catch((e: Error) => setError(e.message));
@@ -33,7 +36,8 @@ export function Bandeja() {
 
   useEffect(() => {
     setError("");
-    obtenerBandeja(params.toString()).then(setDatos).catch((e: Error) => setError(e.message));
+    setCargando(true);
+    obtenerBandeja(params.toString()).then(setDatos).catch((e: Error) => setError(e.message)).finally(() => setCargando(false));
   }, [params]);
 
   function cambiar(clave: string, valor: string) {
@@ -87,12 +91,14 @@ export function Bandeja() {
 
       {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
 
+      {!datos && !error ? <Esqueleto filas={6} alto={44} /> : null}
+
       {datos && datos.solicitudes.length === 0 ? <p>No hay solicitudes con estos filtros.</p> : null}
 
       {datos && datos.solicitudes.length > 0 ? (
         <>
-          <div className="tabla-contenedor">
-            <table className="tabla">
+          <div className={`tabla-contenedor${cargando ? " tabla-contenedor--cargando" : ""}`}>
+            <table className="tabla tabla--filas-enlace">
               <thead>
                 <tr>
                   <th scope="col" className="numero">N.º</th>
@@ -106,7 +112,7 @@ export function Bandeja() {
               </thead>
               <tbody>
                 {datos.solicitudes.map((s) => (
-                  <tr key={s.id}>
+                  <tr key={s.id} onClick={(e) => { if (!(e.target as HTMLElement).closest("a")) navegar(`/asesor/solicitudes/${s.id}`); }}>
                     <td className="numero"><Link to={`/asesor/solicitudes/${s.id}`}>{s.id}</Link></td>
                     <td>{fecha(s.creadaEn)}</td>
                     <td>
