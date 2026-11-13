@@ -4,7 +4,9 @@ import { ofertasDeRenovacion, ventanaDeRenovacion } from "../src/servicios/renov
 import { PLAZOS, accionesSeguimiento, diasHabilesEntre } from "../src/servicios/seguimiento";
 import { diasParaVencer, siguientePaso } from "../src/servicios/siguientePaso";
 import { camposPendientes, limpiarBorrador } from "../src/validacion/pendientes";
-import { ANIO, autos } from "./fixtures";
+import { evaluarSuscripcion } from "../src/cotizacion/suscripcion";
+import { avisoEsTardio, documentosFaltantes } from "../src/servicios/casos";
+import { ANIO, autos, salud } from "./fixtures";
 
 const HORA = 60 * 60 * 1000;
 // Lunes 2 de noviembre de 2026, 9:00.
@@ -89,18 +91,52 @@ describe("siguiente paso de la solicitud", () => {
     expect(codigo({ estado: "COTIZADA" })).toEqual(["REGISTRAR_ASESORIA", "ASESOR"]);
     expect(codigo({ estado: "ASESORADA", tieneAsesoria: true })).toEqual(["ESPERAR_DECISION", "CLIENTE"]);
     expect(codigo({ estado: "ASESORADA", tieneAsesoria: true, eleccionSinConfirmar: true })).toEqual(["ESPERAR_CODIGO", "CLIENTE"]);
-    expect(codigo({ estado: "ACEPTADA" })).toEqual(["EMITIR_POLIZA", "ASESOR"]);
+    // En la etapa 5 del TO-BE el asesor no tiene tareas: suscribe la aseguradora y paga el cliente.
+    expect(codigo({ estado: "ACEPTADA" })).toEqual(["ESPERAR_PAGO", "CLIENTE"]);
+    expect(codigo({ estado: "ACEPTADA", condicionesPendientes: true })).toEqual(["ESPERAR_CONDICIONES", "CLIENTE"]);
+    expect(codigo({ estado: "EN_CUMPLIMIENTO" })).toEqual(["NINGUNO", "NADIE"]);
     expect(codigo({ estado: "NO_INTERESADA" })).toEqual(["NINGUNO", "NADIE"]);
     expect(codigo({ estado: "CERRADA" })).toEqual(["NINGUNO", "NADIE"]);
   });
 
-  it("pide gestionar la renovación solo en los 30 días previos al vencimiento", () => {
-    const poliza = (dias: number, estadoRenovacion = "PENDIENTE") => ({ fechaVencimiento: new Date(2026, 10, 13 + dias, 12, 0), estadoRenovacion });
-    expect(codigo({ estado: "EMITIDA", poliza: poliza(31) })).toEqual(["NINGUNO", "NADIE"]);
-    expect(codigo({ estado: "EMITIDA", poliza: poliza(30) })).toEqual(["GESTIONAR_RENOVACION", "ASESOR"]);
-    expect(codigo({ estado: "EMITIDA", poliza: poliza(0) })).toEqual(["GESTIONAR_RENOVACION", "ASESOR"]);
-    expect(codigo({ estado: "EMITIDA", poliza: poliza(10, "RENOVADA") })).toEqual(["NINGUNO", "NADIE"]);
+  it("la renovación la decide el cliente; el asesor solo llama si pasan cinco días sin respuesta", () => {
+    const poliza = (dias: number, enviadaHace: number, estadoRenovacion = "PENDIENTE") => ({
+      fechaVencimiento: new Date(2026, 10, 13 + dias, 12, 0),
+      estadoRenovacion,
+      propuestaRenovacion: { enviadaEn: new Date(hoy.getTime() - enviadaHace * 24 * 60 * 60 * 1000) },
+    });
+    expect(codigo({ estado: "EMITIDA", poliza: poliza(31, 0) })).toEqual(["NINGUNO", "NADIE"]);
+    expect(codigo({ estado: "EMITIDA", poliza: poliza(28, 2) })).toEqual(["ESPERAR_RENOVACION", "CLIENTE"]);
+    expect(codigo({ estado: "EMITIDA", poliza: poliza(20, 5) })).toEqual(["LLAMAR_RENOVACION", "ASESOR"]);
+    expect(codigo({ estado: "EMITIDA", poliza: poliza(20, 9), renovacionDecidida: true })).toEqual(["NINGUNO", "NADIE"]);
+    expect(codigo({ estado: "EMITIDA", poliza: poliza(10, 9, "RENOVADA") })).toEqual(["NINGUNO", "NADIE"]);
     expect(diasParaVencer(new Date(2026, 10, 20, 12, 0), hoy)).toBe(7);
+  });
+
+  it("un siniestro o una PQR abiertos son tarea del asesor (T16)", () => {
+    expect(codigo({ estado: "EMITIDA", casosAbiertos: 1 })).toEqual(["ATENDER_CASO", "ASESOR"]);
+  });
+});
+
+describe("suscripción de la aseguradora (T11)", () => {
+  it("responde igual para el mismo riesgo y distingue condiciones", () => {
+    expect(evaluarSuscripcion(autos, ANIO)).toEqual(evaluarSuscripcion(autos, ANIO));
+    expect(evaluarSuscripcion(autos, ANIO).resultado).toBe("ESTANDAR");
+    expect(evaluarSuscripcion({ ...autos, datos: { ...autos.datos, modelo: 2012 } }, ANIO).resultado).toBe("CON_CONDICIONES");
+    expect(evaluarSuscripcion({ ...salud, datos: { ...salud.datos, preexistencias: true } }, ANIO).resultado).toBe("CON_CONDICIONES");
+  });
+});
+
+describe("reporte de siniestros (T15)", () => {
+  it("exige los documentos obligatorios del ramo", () => {
+    expect(documentosFaltantes("AUTOS", [])).toHaveLength(2);
+    expect(documentosFaltantes("AUTOS", ["fotos", "licencia"])).toEqual([]);
+  });
+
+  it("alerta cuando el aviso supera los tres días desde el evento", () => {
+    const evento = new Date(2026, 10, 2, 12, 0);
+    expect(avisoEsTardio(evento, new Date(2026, 10, 5, 18, 0))).toBe(false);
+    expect(avisoEsTardio(evento, new Date(2026, 10, 9, 9, 0))).toBe(true);
   });
 });
 

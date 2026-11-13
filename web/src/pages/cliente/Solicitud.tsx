@@ -4,7 +4,9 @@ import { nombreDe, obtenerCatalogos, obtenerSolicitud } from "../../api/cliente"
 import type { Catalogos, SolicitudVista } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Pasos } from "../../components/Pasos";
-import { PasoAceptacion, Constancia } from "./PasoAceptacion";
+import { PasoAceptacion } from "./PasoAceptacion";
+import { PasoPago } from "./PasoPago";
+import { PasoPoliza } from "./PasoPoliza";
 import { PasoComparativo } from "./PasoComparativo";
 import { PasoFormulario } from "./PasoFormulario";
 
@@ -23,7 +25,7 @@ export function Solicitud() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [solicitud?.estado, solicitud?.aceptacion?.ofertaId, modificando]);
+  }, [solicitud?.estado, solicitud?.aceptacion?.ofertaId, solicitud?.aceptacion?.suscripcion?.condicionesAceptadasEn, modificando]);
 
   if (error) return <Aviso tipo="error"><p>{error}</p></Aviso>;
   if (!solicitud || !catalogos) return <p className="texto-secundario">Cargando la solicitud…</p>;
@@ -48,11 +50,23 @@ export function Solicitud() {
         onCancelar={modificando ? () => setModificando(false) : undefined} />
     );
   }
-  if (estado === "ACEPTADA" || estado === "EMITIDA") return <Constancia solicitud={solicitud} catalogos={catalogos} />;
+  if (estado === "EN_CUMPLIMIENTO") {
+    return (
+      <>
+        <Pasos actual={2} />
+        <h1>Solicitud en revisión</h1>
+        <p className="cliente__intro">
+          Su solicitud requiere una revisión adicional del área de cumplimiento antes de cotizar. La agencia se comunicará con usted.
+        </p>
+      </>
+    );
+  }
+  if (estado === "ACEPTADA") return <PasoPago solicitud={solicitud} catalogos={catalogos} onActualizada={actualizar} />;
+  if (estado === "EMITIDA") return <PasoPoliza solicitud={solicitud} catalogos={catalogos} onActualizada={actualizar} />;
   if (estado === "NO_INTERESADA") {
     return (
       <>
-        <Pasos actual={3} />
+        <Pasos actual={4} />
         <h1>Respuesta registrada</h1>
         <p className="cliente__intro">
           Registramos que no continuará con esta cotización. Motivo: {nombreDe(catalogos.motivosNoInteres, solicitud.noInteres?.motivo).toLowerCase()}.

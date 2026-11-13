@@ -6,7 +6,7 @@ import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { Campo } from "../../components/Campo";
 import { Pasos } from "../../components/Pasos";
-import { fecha, fechaHora, pesos } from "../../format/formato";
+import { fechaHora, pesos } from "../../format/formato";
 
 interface Props {
   solicitud: SolicitudVista;
@@ -14,7 +14,7 @@ interface Props {
   onActualizada: (s: SolicitudVista) => void;
 }
 
-function ResumenOferta({ solicitud, catalogos }: Omit<Props, "onActualizada">) {
+export function ResumenOferta({ solicitud, catalogos }: Omit<Props, "onActualizada">) {
   const oferta = solicitud.ofertas.find((o) => o.id === solicitud.aceptacion?.ofertaId);
   if (!oferta) return null;
   const { tomador } = solicitud;
@@ -78,9 +78,12 @@ export function PasoAceptacion({ solicitud, catalogos, onActualizada }: Props) {
 
   return (
     <>
-      <Pasos actual={4} />
+      <Pasos actual={5} />
       <h1>Aceptación de la oferta</h1>
-      <p className="cliente__intro">Revise el resumen. Si está de acuerdo, confirme con el código que le enviamos.</p>
+      <p className="cliente__intro">
+        Revise el resumen. Al confirmar con el código acepta la oferta y firma electrónicamente la solicitud y las autorizaciones;
+        la plataforma radica los soportes ante la aseguradora, sin papeles.
+      </p>
       {mensaje ? <Aviso tipo="error"><p>{mensaje}</p></Aviso> : null}
       <ResumenOferta solicitud={solicitud} catalogos={catalogos} />
       <div className="codigo" aria-live="polite">
@@ -95,35 +98,6 @@ export function PasoAceptacion({ solicitud, catalogos, onActualizada }: Props) {
           <Boton onClick={cambiar} disabled={enviando}>Cambiar de oferta</Boton>
         </div>
       </form>
-    </>
-  );
-}
-
-export function Constancia({ solicitud, catalogos }: Omit<Props, "onActualizada">) {
-  const aceptacion = solicitud.aceptacion!;
-  return (
-    <>
-      <Pasos actual={4} />
-      <h1>Constancia de aceptación</h1>
-      <Aviso>
-        <p>Su aceptación quedó registrada. Un asesor lo contactará para emitir la póliza.</p>
-      </Aviso>
-      <dl className="resumen">
-        <dt>Número de constancia</dt>
-        <dd data-testid="numero-constancia">{aceptacion.constancia}</dd>
-        <dt>Fecha y hora</dt>
-        <dd>{fechaHora(aceptacion.confirmadaEn!)}</dd>
-        {solicitud.poliza ? (
-          <>
-            <dt>Póliza</dt>
-            <dd>{solicitud.poliza.numero}, vigente hasta el {fecha(solicitud.poliza.fechaVencimiento)}</dd>
-          </>
-        ) : null}
-      </dl>
-      <ResumenOferta solicitud={solicitud} catalogos={catalogos} />
-      <div className="acciones no-imprimir">
-        <Boton onClick={() => window.print()}>Imprimir constancia</Boton>
-      </div>
     </>
   );
 }

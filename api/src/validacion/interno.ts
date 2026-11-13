@@ -6,21 +6,19 @@ export const ingresoSchema = z.object({
   clave: z.string({ required_error: "Escriba su contraseña" }).min(1, "Escriba su contraseña"),
 });
 
-function fechaLocal(valor: string): Date {
-  return new Date(`${valor}T12:00:00`);
-}
-
-export const emisionSchema = z.object({
-  numero: texto("Escriba el número de póliza")
-    .toUpperCase()
-    .regex(/^[A-Z0-9-]{4,30}$/, "Use letras, números y guiones, entre 4 y 30 caracteres"),
-  fechaVencimiento: texto("Escriba la fecha de vencimiento")
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha no es válida")
-    .refine((v) => !Number.isNaN(fechaLocal(v).getTime()), "La fecha no es válida")
-    .refine((v) => fechaLocal(v) > new Date(), "La fecha de vencimiento debe ser posterior a hoy")
-    .transform(fechaLocal),
+export const contactoSchema = z.object({
+  nota: texto("Escriba qué se habló con el cliente").min(10, "Escriba un poco más de detalle").max(500, "La nota puede tener hasta 500 caracteres"),
 });
 
-export const renovacionSchema = z.object({
-  estado: z.enum(["RENOVADA", "NO_RENOVADA"], { errorMap: () => ({ message: "Indique si la póliza se renovó" }) }),
+export const cierreSiniestroSchema = z
+  .object({
+    resultado: z.enum(["PAGADO", "OBJETADO"], { errorMap: () => ({ message: "Indique el resultado de la reclamación" }) }),
+    valorPagado: z.number({ invalid_type_error: "Escriba el valor pagado" }).int("Escriba un número entero").min(0, "El valor no puede ser negativo").optional(),
+  })
+  .superRefine((valor, ctx) => {
+    if (valor.resultado === "PAGADO" && !valor.valorPagado) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["valorPagado"], message: "Escriba el valor que pagó la aseguradora" });
+  });
+
+export const respuestaPqrSchema = z.object({
+  respuesta: texto("Escriba la respuesta").min(15, "Escriba la respuesta con un poco más de detalle").max(1000, "Puede tener hasta 1000 caracteres"),
 });

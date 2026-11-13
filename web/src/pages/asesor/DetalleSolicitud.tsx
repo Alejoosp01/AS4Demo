@@ -3,18 +3,18 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { nombreDe, obtenerCatalogos } from "../../api/cliente";
 import type { ErrorApi, Errores } from "../../api/http";
-import { emitirPoliza, guardarAsesoria, obtenerSolicitudInterna } from "../../api/interno";
-import type { Catalogos, SolicitudInterna } from "../../api/tipos";
+import { cerrarSiniestro, guardarAsesoria, obtenerSolicitudInterna, radicarSiniestro, registrarContacto, responderPqr } from "../../api/interno";
+import type { Catalogos, PqrVista, SiniestroVista, SolicitudInterna } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { useAviso } from "../../components/Avisos";
-import { AreaTexto, Campo } from "../../components/Campo";
+import { AreaTexto, Campo, Opciones } from "../../components/Campo";
 import { Comparativo } from "../../components/Comparativo";
 import { Esqueleto } from "../../components/Esqueleto";
 import { Estado } from "../../components/Estado";
 import { Icono } from "../../components/Icono";
 import { useSesion } from "../../sesion/Sesion";
-import { fecha, fechaHora, hace, pesos } from "../../format/formato";
+import { aNumero, conMiles, fecha, fechaHora, hace, pesos } from "../../format/formato";
 import { datosRiesgo, datosSarlaft } from "./datosRiesgo";
 import "./Asesor.css";
 
@@ -27,34 +27,38 @@ type AlGuardar = (s: SolicitudInterna) => void;
 
 type EstadoPaso = "hecho" | "actual" | "pendiente" | "omitido";
 
-function pasosDelProceso(s: SolicitudInterna): { nombre: string; quien: string; estado: EstadoPaso; nota?: string }[] {
-  const cotizada = s.estado !== "NUEVA" && s.estado !== "CERRADA";
+function pasosDelProceso(s: SolicitudInterna): { nombre: string; quien: string; tarea: string; estado: EstadoPaso; nota?: string }[] {
+  const conDatos = !["NUEVA", "CERRADA", "EN_CUMPLIMIENTO"].includes(s.estado);
   const aceptada = s.estado === "ACEPTADA" || s.estado === "EMITIDA";
-  const hechos = [true, cotizada, Boolean(s.asesoria), aceptada, s.estado === "EMITIDA"];
-  const detenida = s.estado === "NO_INTERESADA" || s.estado === "CERRADA";
-  const actual = detenida ? -1 : hechos.findIndex((h, i) => !h && !(i === 2 && aceptada));
-  const nombres = [
-    ["Solicitud", "Cliente"],
-    ["Datos y cotización", "Cliente y plataforma"],
-    ["Asesoría", "Asesor"],
-    ["Aceptación", "Cliente"],
-    ["Emisión", "Asesor"],
+  const emitida = s.estado === "EMITIDA";
+  // Las siete etapas siguen la matriz del proceso TO-BE.
+  const hechos = [true, conDatos, conDatos, Boolean(s.asesoria), aceptada, emitida, emitida];
+  const detenida = ["NO_INTERESADA", "CERRADA", "EN_CUMPLIMIENTO"].includes(s.estado);
+  const actual = detenida ? -1 : hechos.findIndex((h, i) => !h && !(i === 3 && aceptada));
+  const etapas = [
+    ["Solicitud", "Cliente y plataforma", "T01–T02"],
+    ["SARLAFT y datos", "Cliente", "T03–T07"],
+    ["Cotización", "Plataforma", "T08"],
+    ["Asesoría", "Asesor", "T09"],
+    ["Aceptación y firma", "Cliente", "T10"],
+    ["Suscripción y pago", "Aseguradora y cliente", "T11–T12"],
+    ["Póliza", "Aseguradora y plataforma", "T13–T14"],
   ];
-  return nombres.map(([nombre, quien], i) => {
-    if (hechos[i]) return { nombre, quien, estado: "hecho" };
-    if (i === 2 && aceptada) return { nombre, quien, estado: "omitido", nota: "Sin asesoría registrada" };
-    return { nombre, quien, estado: i === actual ? "actual" : "pendiente" };
+  return etapas.map(([nombre, quien, tarea], i) => {
+    if (hechos[i]) return { nombre, quien, tarea, estado: "hecho" };
+    if (i === 3 && aceptada) return { nombre, quien, tarea, estado: "omitido", nota: "Sin asesoría registrada" };
+    return { nombre, quien, tarea, estado: i === actual ? "actual" : "pendiente" };
   });
 }
 
 function Recorrido({ solicitud }: { solicitud: SolicitudInterna }) {
   const pasos = pasosDelProceso(solicitud);
-  const detenida = solicitud.estado === "NO_INTERESADA" ? "El cliente no continuó" : solicitud.estado === "CERRADA" ? "Cerrada por falta de datos" : "";
+  const detenida = { NO_INTERESADA: "El cliente no continuó", CERRADA: "Cerrada por datos incompletos", EN_CUMPLIMIENTO: "Escalada a cumplimiento por listas restrictivas" }[solicitud.estado as string] ?? "";
   return (
     <>
       <ol className="recorrido" aria-label="Avance de la solicitud">
         {pasos.map((p, i) => (
-          <li key={p.nombre} className={`recorrido__paso recorrido__paso--${p.estado} en-cascada`} style={{ "--i": i } as React.CSSProperties} aria-current={p.estado === "actual" ? "step" : undefined}>
+          <li key={p.nombre} title={`Tareas ${p.tarea} de la matriz`} className={`recorrido__paso recorrido__paso--${p.estado} en-cascada`} style={{ "--i": i } as React.CSSProperties} aria-current={p.estado === "actual" ? "step" : undefined}>
             <span className="recorrido__numero" aria-hidden="true">{p.estado === "hecho" ? "✓" : i + 1}</span>
             <span className="recorrido__nombre">{p.nombre}</span>
             <span className="recorrido__quien">
@@ -81,6 +85,11 @@ function Contacto({ solicitud, mensaje }: { solicitud: SolicitudInterna; mensaje
   const { telefono, correo } = solicitud.tomador;
   const texto = `${mensaje} ${enlace}`;
 
+  async function copiarMensaje() {
+    await navigator.clipboard?.writeText(texto).catch(() => undefined);
+    avisar("Mensaje copiado. Péguelo en WhatsApp o en el canal que use con el cliente.");
+  }
+
   async function copiar() {
     await navigator.clipboard?.writeText(enlace).catch(() => undefined);
     setCopiado(true);
@@ -91,11 +100,7 @@ function Contacto({ solicitud, mensaje }: { solicitud: SolicitudInterna; mensaje
     <div className="contacto no-imprimir">
       <div className="contacto__acciones">
         <a className="boton boton--principal" href={`tel:${telefono}`}><Icono nombre="telefono" tamano={17} />Llamar al {telefono}</a>
-        {telefono.startsWith("3") ? (
-          <a className="boton boton--secundario" href={`https://wa.me/57${telefono}?text=${encodeURIComponent(texto)}`} target="_blank" rel="noreferrer">
-            Escribir por WhatsApp
-          </a>
-        ) : null}
+        <Boton onClick={copiarMensaje}>Copiar mensaje para WhatsApp</Boton>
         <a className="boton boton--secundario" href={`mailto:${correo}?subject=${encodeURIComponent("Su cotización con AS4 Seguros")}&body=${encodeURIComponent(texto)}`}>
           Enviar correo
         </a>
@@ -189,60 +194,141 @@ function FormularioAsesoria({ solicitud, onGuardada }: { solicitud: SolicitudInt
   );
 }
 
-function sumarUnAnio(): string {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function FormularioEmision({ solicitud, onEmitida }: { solicitud: SolicitudInterna; onEmitida: AlGuardar }) {
-  const [numero, setNumero] = useState("");
-  const [vencimiento, setVencimiento] = useState(sumarUnAnio);
-  const [errores, setErrores] = useState<Errores>({});
-  const [mensaje, setMensaje] = useState("");
+/** T07: el contacto con el cliente queda registrado en la solicitud. */
+function RegistroContacto({ solicitud, onGuardado }: { solicitud: SolicitudInterna; onGuardado: AlGuardar }) {
+  const [nota, setNota] = useState("");
+  const [error, setError] = useState("");
   const [enviando, setEnviando] = useState(false);
-  const elegida = solicitud.ofertas.find((o) => o.id === solicitud.aceptacion?.ofertaId);
+  const avisar = useAviso();
 
-  async function emitir(evento: FormEvent) {
+  async function guardar(evento: FormEvent) {
     evento.preventDefault();
     setEnviando(true);
-    setMensaje("");
+    setError("");
     try {
-      onEmitida(await emitirPoliza(solicitud.id, { numero, fechaVencimiento: vencimiento }));
-    } catch (error) {
-      const e = error as ErrorApi;
-      setErrores(e.errores ?? {});
-      if (!e.errores || Object.keys(e.errores).length === 0) setMensaje(e.message);
-      setEnviando(false);
+      const nueva = await registrarContacto(solicitud.id, nota);
+      setNota("");
+      avisar("Contacto registrado en la bitácora de la solicitud.");
+      onGuardado(nueva);
+    } catch (e) {
+      const err = e as ErrorApi;
+      setError(err.errores?.nota ?? err.message);
     }
+    setEnviando(false);
   }
 
   return (
-    <form onSubmit={emitir} noValidate>
-      {mensaje ? <Aviso tipo="error"><p>{mensaje}</p></Aviso> : null}
-      {elegida ? (
-        <p className="oferta-aceptada">
-          Oferta aceptada: <strong>{elegida.aseguradoraNombre}</strong>, {pesos(elegida.primaAnual)} al año. Deducible: {elegida.deducible}.
-        </p>
-      ) : null}
-      <h3><span className="numero-paso">1</span> Tramite la expedición con la aseguradora</h3>
-      <p className="texto-secundario">Los datos del riesgo y el SARLAFT ya están completos y validados; no hay que pedírselos de nuevo al cliente.</p>
-      <h3><span className="numero-paso">2</span> Registre la póliza expedida</h3>
-      <div className="fila-campos">
-        <Campo id="numero" etiqueta="Número de póliza" ayuda="Tal como aparece en la carátula" value={numero}
-          onChange={(e) => setNumero(e.target.value)} error={errores.numero} />
-        <Campo id="fechaVencimiento" etiqueta="Fecha de vencimiento" ayuda="Se propone un año de vigencia" type="date" value={vencimiento}
-          onChange={(e) => setVencimiento(e.target.value)} error={errores.fechaVencimiento} />
-      </div>
-      <Boton type="submit" variante="principal" disabled={enviando}>{enviando ? <span className="girador" aria-hidden="true" /> : null}Marcar como emitida</Boton>
+    <form className="registro-contacto" onSubmit={guardar} noValidate>
+      <AreaTexto id="nota" etiqueta="Registrar el contacto" ayuda="Qué se habló con el cliente y qué quedó pendiente." value={nota}
+        onChange={(e) => setNota(e.target.value)} error={error} maxLength={500} rows={2} />
+      <Boton type="submit" disabled={enviando}>Guardar contacto</Boton>
     </form>
+  );
+}
+
+const RESULTADOS = [{ codigo: "PAGADO", nombre: "Pagado" }, { codigo: "OBJETADO", nombre: "Objetado" }];
+
+/** T16: radicar la reclamación y, al cierre, registrar resultado y valor pagado. */
+function CasoSiniestro({ siniestro, solicitud, catalogos, onCambio }: { siniestro: SiniestroVista; solicitud: SolicitudInterna; catalogos: Catalogos; onCambio: AlGuardar }) {
+  const [resultado, setResultado] = useState("");
+  const [valor, setValor] = useState("");
+  const [errores, setErrores] = useState<Errores>({});
+  const [mensaje, setMensaje] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const avisar = useAviso();
+  const lista = catalogos.documentosSiniestro[solicitud.ramo];
+  const adjuntos = lista.filter((d) => siniestro.documentos?.includes(d.codigo)).map((d) => d.nombre.toLowerCase());
+
+  async function ejecutar(accion: () => Promise<SolicitudInterna>, confirmacion: string) {
+    setEnviando(true);
+    setMensaje("");
+    setErrores({});
+    try {
+      const nueva = await accion();
+      avisar(confirmacion);
+      onCambio(nueva);
+    } catch (e) {
+      const err = e as ErrorApi;
+      setErrores(err.errores ?? {});
+      if (!err.errores || Object.keys(err.errores).length === 0) setMensaje(err.message);
+    }
+    setEnviando(false);
+  }
+
+  function cerrar(evento: FormEvent) {
+    evento.preventDefault();
+    const valorPagado = aNumero(valor);
+    void ejecutar(() => cerrarSiniestro(siniestro.id, { resultado: resultado || undefined, valorPagado: Number.isNaN(valorPagado) ? undefined : valorPagado }), "Siniestro cerrado. El resultado ya alimenta el tablero.");
+  }
+
+  return (
+    <article className="caso">
+      <h3>Siniestro del {fecha(siniestro.fechaEvento ?? siniestro.fechaReporte)}{siniestro.lugar ? `, ${siniestro.lugar}` : ""}</h3>
+      <p>{siniestro.descripcion}</p>
+      <p className="texto-secundario">
+        Reportado {hace(siniestro.fechaReporte)}. Documentos: {adjuntos.length > 0 ? adjuntos.join("; ") : "sin lista"}.
+        {siniestro.radicadoEn ? ` Radicado el ${fechaHora(siniestro.radicadoEn)}.` : ""}
+      </p>
+      {siniestro.avisoTardio ? <Aviso tipo="alerta"><p>El aviso llegó más de tres días después del evento (art. 1075 C. Co.). Revíselo con la aseguradora.</p></Aviso> : null}
+      {mensaje ? <Aviso tipo="error"><p>{mensaje}</p></Aviso> : null}
+
+      {siniestro.estado === "REPORTADO" ? (
+        <>
+          <p><span className="numero-paso">1</span> La reclamación llegó completa: radíquela ante la aseguradora.</p>
+          <Boton variante="principal" disabled={enviando} onClick={() => ejecutar(() => radicarSiniestro(siniestro.id), "Reclamación radicada ante la aseguradora.")}>Radicar la reclamación</Boton>
+        </>
+      ) : (
+        <form onSubmit={cerrar} noValidate>
+          <p><span className="numero-paso">2</span> Haga seguimiento con la aseguradora y, cuando responda, cierre el caso.</p>
+          <Opciones id={`resultado-${siniestro.id}`} etiqueta="Resultado" valor={resultado} opciones={RESULTADOS} onCambiar={setResultado} error={errores.resultado} />
+          {resultado === "PAGADO" ? (
+            <Campo id={`valor-${siniestro.id}`} etiqueta="Valor pagado" ayuda="En pesos" inputMode="numeric" value={valor}
+              onChange={(e) => setValor(conMiles(e.target.value))} error={errores.valorPagado} />
+          ) : null}
+          <Boton type="submit" variante="principal" disabled={enviando}>Cerrar el siniestro</Boton>
+        </form>
+      )}
+    </article>
+  );
+}
+
+function CasoPqr({ pqr, catalogos, onCambio }: { pqr: PqrVista; catalogos: Catalogos; onCambio: AlGuardar }) {
+  const [respuesta, setRespuesta] = useState("");
+  const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const avisar = useAviso();
+
+  async function responder(evento: FormEvent) {
+    evento.preventDefault();
+    setEnviando(true);
+    setError("");
+    try {
+      const nueva = await responderPqr(pqr.id, respuesta);
+      avisar("PQR respondida y cerrada.");
+      onCambio(nueva);
+    } catch (e) {
+      const err = e as ErrorApi;
+      setError(err.errores?.respuesta ?? err.message);
+    }
+    setEnviando(false);
+  }
+
+  return (
+    <article className="caso">
+      <h3>{nombreDe(catalogos.tiposPqr, pqr.tipo)} del {fecha(pqr.fecha)}</h3>
+      <p>{pqr.descripcion ?? pqr.asunto}</p>
+      <form onSubmit={responder} noValidate>
+        <AreaTexto id={`respuesta-${pqr.id}`} etiqueta="Respuesta al cliente" value={respuesta} onChange={(e) => setRespuesta(e.target.value)} error={error} maxLength={1000} rows={3} />
+        <Boton type="submit" variante="principal" disabled={enviando}>Responder y cerrar</Boton>
+      </form>
+    </article>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Panel «Qué sigue»: una sola acción a la vez, deducida del estado de la solicitud.
 
-function PanelQueSigue({ solicitud, onCambio }: { solicitud: SolicitudInterna; onCambio: AlGuardar }) {
+function PanelQueSigue({ solicitud, catalogos, onCambio }: { solicitud: SolicitudInterna; catalogos: Catalogos; onCambio: AlGuardar }) {
   const { usuario } = useSesion();
   const s = solicitud;
   const paso = s.siguientePaso;
@@ -255,9 +341,27 @@ function PanelQueSigue({ solicitud, onCambio }: { solicitud: SolicitudInterna; o
     case "REGISTRAR_ASESORIA":
       contenido = <FormularioAsesoria solicitud={s} onGuardada={onCambio} />;
       break;
-    case "EMITIR_POLIZA":
-      contenido = <FormularioEmision solicitud={s} onEmitida={onCambio} />;
+    case "ATENDER_CASO":
+      contenido = (
+        <>
+          {s.siniestros.filter((x) => x.estado !== "CERRADO").map((x) => <CasoSiniestro key={x.id} siniestro={x} solicitud={s} catalogos={catalogos} onCambio={onCambio} />)}
+          {s.pqrs.filter((x) => x.estado !== "CERRADA").map((x) => <CasoPqr key={x.id} pqr={x} catalogos={catalogos} onCambio={onCambio} />)}
+          <Contacto solicitud={s} mensaje={`Hola, ${nombre}. ${firma} Ya estoy gestionando su caso; puede ver el avance aquí:`} />
+        </>
+      );
       break;
+    case "ESPERAR_CONDICIONES":
+    case "ESPERAR_PAGO": {
+      const sus = s.aceptacion?.suscripcion;
+      contenido = (
+        <>
+          {sus ? <p className="oferta-aceptada"><strong>{sus.revision}:</strong> {sus.detalle}</p> : null}
+          <p className="texto-secundario">En esta etapa usted no digita nada: la aseguradora suscribe y emite, y la plataforma entrega la póliza y registra la venta.</p>
+          <Contacto solicitud={s} mensaje={`Hola, ${nombre}. ${firma} La aseguradora ya respondió su solicitud. Puede revisar la respuesta y hacer el pago aquí:`} />
+        </>
+      );
+      break;
+    }
     case "CONTACTAR_CLIENTE":
     case "ESPERAR_DATOS": {
       const sinEmpezar = !s.borrador;
@@ -278,6 +382,10 @@ function PanelQueSigue({ solicitud, onCambio }: { solicitud: SolicitudInterna; o
             </li>
             <li>Cierre automático a los cinco días hábiles de recibida ({hace(s.creadaEn)}).</li>
           </ul>
+          <p className="no-imprimir">
+            <Link className="boton boton--secundario" to={`/solicitud/${s.token}`}>Completar los datos con el cliente</Link>
+          </p>
+          {paso.codigo === "CONTACTAR_CLIENTE" ? <RegistroContacto solicitud={s} onGuardado={onCambio} /> : null}
           <Contacto solicitud={s} mensaje={sinEmpezar
             ? `Hola, ${nombre}. ${firma} Para enviarle su comparativo solo necesitamos los datos del seguro. Puede diligenciarlos una sola vez aquí:`
             : `Hola, ${nombre}. ${firma} Para enviarle su comparativo solo ${s.pendientes.length === 1 ? "falta este dato" : "faltan estos datos"}: ${lista}. Puede completarlos aquí:`} />
@@ -289,7 +397,8 @@ function PanelQueSigue({ solicitud, onCambio }: { solicitud: SolicitudInterna; o
     case "ESPERAR_CODIGO":
       contenido = <Contacto solicitud={s} mensaje={`Hola, ${nombre}. ${firma} Ya puede ver su comparativo con mi recomendación y elegir la oferta aquí:`} />;
       break;
-    case "GESTIONAR_RENOVACION":
+    case "ESPERAR_RENOVACION":
+    case "LLAMAR_RENOVACION":
       contenido = <p><Link className="boton boton--principal" to="/asesor/renovaciones">Ver la propuesta de renovación</Link></p>;
       break;
     default:
@@ -298,7 +407,7 @@ function PanelQueSigue({ solicitud, onCambio }: { solicitud: SolicitudInterna; o
 
   return (
     <section id="que-sigue" key={paso.codigo} className={`panel-sigue panel-sigue--${paso.responsable.toLowerCase()} pagina`} aria-labelledby="titulo-sigue">
-      <p className="panel-sigue__quien">Qué sigue · {quien}</p>
+      <p className="panel-sigue__quien">Qué sigue · {quien}{paso.tarea ? <span className="panel-sigue__tarea" title="Tarea de la matriz TO-BE">{paso.tarea}</span> : null}</p>
       <h2 id="titulo-sigue">{paso.titulo}</h2>
       {paso.descripcion ? <p className="panel-sigue__descripcion">{paso.descripcion}</p> : null}
       {contenido}
@@ -373,9 +482,11 @@ export function DetalleSolicitud() {
   const asesorando = s.siguientePaso.codigo === "REGISTRAR_ASESORIA";
 
   function alGuardar(nueva: SolicitudInterna) {
-    avisar(nueva.estado === "EMITIDA" ? "Póliza registrada. La solicitud quedó emitida." : "Asesoría guardada. El cliente ya la ve en su comparativo.");
+    if (nueva.asesoria && !solicitud?.asesoria) {
+      avisar("Asesoría guardada. El cliente ya la ve en su comparativo.");
+      window.scrollTo(0, 0);
+    }
     setSolicitud(nueva);
-    window.scrollTo(0, 0);
   }
 
   return (
@@ -393,7 +504,7 @@ export function DetalleSolicitud() {
 
       <div className="detalle">
         <div className="detalle__principal">
-          <PanelQueSigue solicitud={s} onCambio={alGuardar} />
+          <PanelQueSigue solicitud={s} catalogos={catalogos} onCambio={alGuardar} />
 
           {s.ofertas.length > 0 && !asesorando ? (
             <section className="seccion">
@@ -440,6 +551,21 @@ export function DetalleSolicitud() {
             </section>
           ) : null}
 
+          {s.aceptacion?.suscripcion ? (
+            <section className="seccion">
+              <h2>Suscripción de la aseguradora</h2>
+              <dl className="resumen">
+                <dt>{s.aceptacion.suscripcion.revision}</dt>
+                <dd>{s.aceptacion.suscripcion.detalle}</dd>
+                <dt>Resultado</dt>
+                <dd>
+                  {s.aceptacion.suscripcion.resultado === "ESTANDAR" ? "Condiciones estándar" : "Con condiciones"}, {fechaHora(s.aceptacion.suscripcion.suscritaEn)}
+                  {s.aceptacion.suscripcion.condicionesAceptadasEn ? ` · aceptadas por el cliente el ${fechaHora(s.aceptacion.suscripcion.condicionesAceptadasEn)}` : ""}
+                </dd>
+              </dl>
+            </section>
+          ) : null}
+
           {s.poliza ? (
             <section className="seccion">
               <h2>Póliza</h2>
@@ -448,7 +574,42 @@ export function DetalleSolicitud() {
                 <dd>{s.poliza.numero}</dd>
                 <dt>Vigencia</dt>
                 <dd>{fecha(s.poliza.fechaEmision)} a {fecha(s.poliza.fechaVencimiento)}</dd>
+                {s.poliza.pagadaEn ? (<><dt>Pago</dt><dd>{nombreDe(catalogos.formasPago, s.poliza.formaPago)}, {fecha(s.poliza.pagadaEn)}</dd></>) : null}
+                {s.renovacion?.decision ? (
+                  <>
+                    <dt>Renovación</dt>
+                    <dd>
+                      {s.renovacion.decision === "RENOVADA"
+                        ? `Renovada con ${s.renovacion.aseguradoraElegida}, ${pesos(s.renovacion.primaElegida ?? 0)}`
+                        : `No renovada: ${nombreDe(catalogos.motivosNoRenovacion, s.renovacion.motivoNoRenovacion).toLowerCase()}`}
+                    </dd>
+                  </>
+                ) : null}
               </dl>
+            </section>
+          ) : null}
+
+          {s.siniestros.length + s.pqrs.length > 0 ? (
+            <section className="seccion">
+              <h2>Siniestros y PQR</h2>
+              <ul className="historial-casos">
+                {s.siniestros.map((x) => (
+                  <li key={`s${x.id}`}>
+                    <strong>Siniestro del {fecha(x.fechaEvento ?? x.fechaReporte)}</strong> · {x.descripcion}
+                    <span className="texto-secundario">
+                      {x.estado === "CERRADO"
+                        ? ` Cerrado${x.cerradoEn ? ` el ${fecha(x.cerradoEn)}` : ""}: ${x.resultado === "PAGADO" ? `pagado por ${pesos(x.valorPagado ?? 0)}` : "objetado"}.`
+                        : x.estado === "RADICADO" ? " Radicado, en seguimiento." : " Por radicar."}
+                    </span>
+                  </li>
+                ))}
+                {s.pqrs.map((x) => (
+                  <li key={`p${x.id}`}>
+                    <strong>{nombreDe(catalogos.tiposPqr, x.tipo)} del {fecha(x.fecha)}</strong> · {x.descripcion ?? x.asunto}
+                    <span className="texto-secundario">{x.estado === "CERRADA" ? ` Respondida: ${x.respuesta}` : " Por responder."}</span>
+                  </li>
+                ))}
+              </ul>
             </section>
           ) : null}
         </div>
@@ -459,6 +620,8 @@ export function DetalleSolicitud() {
             ["Documento", `${nombreDe(catalogos.tiposDocumento, s.tomador.tipoDocumento)} ${s.tomador.numeroDocumento}`],
             ["Correo", s.tomador.correo],
             ["Teléfono", s.tomador.telefono],
+            ...(s.tomador.ciudad ? [["Ciudad", nombreDe(catalogos.ciudades, s.tomador.ciudad)] as [string, string]] : []),
+            ["Clasificación", `Persona ${s.clasificacion.tipoCliente === "JURIDICA" ? "jurídica" : "natural"}, ${s.clasificacion.tramite === "RENOVACION" ? "renovación" : "póliza nueva"}`],
             ["Autorización de datos", `${fechaHora(s.autorizaDatosEn)}, versión ${s.autorizaDatosVersion}`],
           ]} />
           <Datos titulo="Datos del riesgo" filas={datosRiesgo(s.ramo, s.datosRamo, catalogos)} vacio="El cliente aún no los ha completado." />

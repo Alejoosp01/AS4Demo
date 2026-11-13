@@ -15,8 +15,8 @@ import "./Asesor.css";
 
 const TAREAS = [
   { codigo: "", nombre: "Todas" },
+  { codigo: "casos", nombre: "Siniestros y PQR" },
   { codigo: "asesorar", nombre: "Por asesorar" },
-  { codigo: "emitir", nombre: "Por emitir" },
   { codigo: "contactar", nombre: "Por contactar" },
   { codigo: "cliente", nombre: "Esperan al cliente" },
 ];

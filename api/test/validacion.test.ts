@@ -22,6 +22,7 @@ const solicitudValida = {
   numeroDocumento: "52123456",
   correo: "carolina@correo.example",
   telefono: "310 555 1234",
+  ciudad: "bogota",
   ramo: "AUTOS",
   autorizaDatos: true,
 };
@@ -36,6 +37,22 @@ const sarlaftValido = {
 };
 
 describe("solicitud", () => {
+  it("con NIT solo deja cotizar Pymes y RC (T02)", () => {
+    const juridica = { ...solicitudValida, tipoDocumento: "NIT", numeroDocumento: "900123456" };
+    expect(errores(solicitudSchema.safeParse(juridica)).ramo).toBe("Con NIT solo se puede cotizar Pymes y RC");
+    expect(solicitudSchema.safeParse({ ...juridica, ramo: "PYMES" }).success).toBe(true);
+  });
+
+  it("los ramos con datos de salud exigen la autorización de datos sensibles (T01)", () => {
+    expect(errores(solicitudSchema.safeParse({ ...solicitudValida, ramo: "SALUD" })).autorizaDatosSensibles).toMatch(/datos de salud/);
+    expect(solicitudSchema.safeParse({ ...solicitudValida, ramo: "SALUD", autorizaDatosSensibles: true }).success).toBe(true);
+  });
+
+  it("si es persona expuesta políticamente pide el cargo (T03)", () => {
+    expect(errores(sarlaftSchema.safeParse({ ...sarlaftValido, personaExpuestaPoliticamente: true })).cargoPep).toBe("Indique el cargo público y la entidad");
+    expect(sarlaftSchema.safeParse({ ...sarlaftValido, personaExpuestaPoliticamente: true, cargoPep: "Concejal de Bogotá" }).success).toBe(true);
+  });
+
   it("acepta una solicitud completa y normaliza el teléfono", () => {
     const resultado = solicitudSchema.parse(solicitudValida);
     expect(resultado.telefono).toBe("3105551234");

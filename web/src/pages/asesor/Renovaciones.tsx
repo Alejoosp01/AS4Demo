@@ -2,14 +2,16 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { nombreDe, obtenerCatalogos } from "../../api/cliente";
-import { type Renovacion, marcarRenovacion, obtenerRenovaciones } from "../../api/interno";
+import type { ErrorApi } from "../../api/http";
+import { type Renovacion, obtenerRenovaciones, registrarRenovacion } from "../../api/interno";
 import type { Catalogos } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { useAviso } from "../../components/Avisos";
 import { Boton } from "../../components/Boton";
+import { Selector } from "../../components/Campo";
 import { Esqueleto } from "../../components/Esqueleto";
 import { Icono } from "../../components/Icono";
-import { fecha, pesos, variacion } from "../../format/formato";
+import { fecha, hace, pesos, variacion } from "../../format/formato";
 import "../../components/Tabla.css";
 import "./Asesor.css";
 
@@ -67,6 +69,49 @@ function Propuesta({ r }: { r: Renovacion }) {
   );
 }
 
+/** Cuando el cliente decide por teléfono, el asesor registra esa decisión en su nombre. */
+function DecisionPorTelefono({ r, catalogos, onRegistrada }: { r: Renovacion; catalogos: Catalogos | null; onRegistrada: (texto: string) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const [aseguradora, setAseguradora] = useState("");
+  const [motivo, setMotivo] = useState("");
+  const [error, setError] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const ofertas = r.propuesta?.ofertas ?? [];
+
+  async function registrar(datos: unknown, texto: string) {
+    setEnviando(true);
+    setError("");
+    try {
+      await registrarRenovacion(r.solicitudId, datos);
+      onRegistrada(texto);
+    } catch (e) {
+      const err = e as ErrorApi;
+      setError(Object.values(err.errores ?? {})[0] ?? err.message);
+      setEnviando(false);
+    }
+  }
+
+  if (!abierto) return <Boton className="boton--compacto" variante="principal" onClick={() => setAbierto(true)}>Registrar la decisión del cliente</Boton>;
+
+  return (
+    <div className="decision-telefono">
+      {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
+      <div className="decision-telefono__opcion">
+        <Selector id={`oferta-${r.id}`} etiqueta="Renueva con" opciones={ofertas.map((o) => ({ codigo: o.aseguradoraNombre, nombre: `${o.aseguradoraNombre}, ${pesos(o.primaAnual)}${o.esActual ? " (actual)" : ""}` }))}
+          value={aseguradora} onChange={(e) => setAseguradora(e.target.value)} />
+        <Boton className="boton--compacto" variante="principal" disabled={enviando || !aseguradora}
+          onClick={() => registrar({ decision: "RENOVAR", aseguradora }, `Póliza ${r.numero} renovada con ${aseguradora}.`)}>Registrar renovación</Boton>
+      </div>
+      <div className="decision-telefono__opcion">
+        <Selector id={`motivo-${r.id}`} etiqueta="No renueva por" opciones={catalogos?.motivosNoRenovacion ?? []} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+        <Boton className="boton--compacto" disabled={enviando || !motivo}
+          onClick={() => registrar({ decision: "NO_RENOVAR", motivo }, `Póliza ${r.numero} registrada como no renovada.`)}>Registrar que no renueva</Boton>
+      </div>
+      <Boton variante="enlace" onClick={() => setAbierto(false)}>Cancelar</Boton>
+    </div>
+  );
+}
+
 export function Renovaciones() {
   const [lista, setLista] = useState<Renovacion[] | null>(null);
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
@@ -82,15 +127,9 @@ export function Renovaciones() {
     obtenerCatalogos().then(setCatalogos).catch(() => undefined);
   }, [cargar]);
 
-  async function marcar(r: Renovacion, estado: "RENOVADA" | "NO_RENOVADA") {
-    setError("");
-    try {
-      await marcarRenovacion(r.id, estado);
-      avisar(`Póliza ${r.numero} marcada como ${estado === "RENOVADA" ? "renovada" : "no renovada"}.`);
-      cargar();
-    } catch (e) {
-      setError((e as Error).message);
-    }
+  function alRegistrar(texto: string) {
+    avisar(texto);
+    cargar();
   }
 
   return (
@@ -100,8 +139,8 @@ export function Renovaciones() {
         {lista ? <span className="texto-secundario">{lista.length} pólizas</span> : null}
       </div>
       <p className="texto-secundario pagina__intro">
-        Pólizas que vencen en los próximos 30 días. La plataforma ya recotizó cada una con todas las aseguradoras y le envió la propuesta al cliente:
-        a usted le queda llamarlo, resolver sus dudas y registrar el resultado. Están ordenadas por vencimiento.
+        Pólizas que vencen en los próximos 30 días. La plataforma ya recotizó cada una y le envió la propuesta al cliente, que decide desde su enlace.
+        A usted solo le corresponde llamar cuando pasan cinco días sin respuesta. Están ordenadas por vencimiento.
       </p>
       {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
       {!lista && !error ? <Esqueleto filas={3} alto={170} /> : null}
@@ -122,15 +161,20 @@ export function Renovaciones() {
             </span>
           </header>
 
+          {r.propuesta ? (
+            <p className={r.propuesta.sinRespuesta ? "renovacion__estado renovacion__estado--llamar" : "renovacion__estado"}>
+              {r.propuesta.sinRespuesta
+                ? <><Icono nombre="telefono" tamano={16} /> Propuesta enviada {hace(r.propuesta.enviadaEn)} y sin respuesta: <strong>le corresponde llamar</strong>.</>
+                : <><Icono nombre="reloj" tamano={16} /> Propuesta enviada {hace(r.propuesta.enviadaEn)}. Esperando la decisión del cliente; aún no requiere acción suya.</>}
+            </p>
+          ) : null}
+
           <Propuesta r={r} />
 
           <div className="renovacion__acciones no-imprimir">
             <a className="boton boton--secundario boton--compacto" href={`tel:${r.telefono}`}><Icono nombre="telefono" tamano={15} />Llamar al {r.telefono}</a>
-            <span className="renovacion__resultado">
-              <span className="texto-secundario">Resultado de la gestión:</span>
-              <Boton className="boton--compacto" variante="principal" onClick={() => marcar(r, "RENOVADA")} aria-label={`Marcar ${r.numero} como renovada`}>Renovada</Boton>
-              <Boton className="boton--compacto" onClick={() => marcar(r, "NO_RENOVADA")} aria-label={`Marcar ${r.numero} como no renovada`}>No renovada</Boton>
-            </span>
+            <Link className="boton boton--secundario boton--compacto" to={`/solicitud/${r.token}`}>Ver el enlace del cliente</Link>
+            <DecisionPorTelefono r={r} catalogos={catalogos} onRegistrada={alRegistrar} />
           </div>
         </article>
       ))}

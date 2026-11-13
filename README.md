@@ -6,28 +6,40 @@ Es un proyecto universitario (PRI2IS, Escuela Colombiana de Ingeniería). **Las 
 
 ## Qué hace
 
-| Rol | Acceso | Funciones |
+El demo sigue el flujo de la matriz de procesos TO-BE (27 tareas, T01 a T17). Cada pantalla indica la tarea a la que corresponde.
+
+| Etapa de la matriz | Quién | Qué pasa en el demo |
 |---|---|---|
-| Cliente | Enlace, sin iniciar sesión (`/solicitud`) | 1. Solicitud con autorización de datos (Ley 1581 de 2012; se guardan fecha, hora y versión). 2. Formulario del ramo y SARLAFT único; puede guardar y volver por el mismo enlace, donde solo ve los campos pendientes. 3. Comparativo con explicación de cada amparo; elegir una oferta o «No me interesa» con motivo. 4. Aceptación con código de confirmación y constancia. |
-| Asesor | Ingreso (`/ingreso`) | **Mi trabajo**: sus tareas en orden de prioridad (emitir, asesorar, contactar clientes detenidos, renovaciones). **Solicitudes**: bandeja con la columna «Qué sigue» y filtros por tarea, ramo y estado. **Detalle guiado**: recorrido del proceso, panel «Qué sigue» con una sola acción a la vez, el mismo comparativo del cliente, bitácora. Asesoría con criterio obligatorio (mínimo 30 caracteres, no editable). Emisión. **Renovaciones** de los próximos 30 días con la recotización automática. |
-| Gerencia | Ingreso (`/ingreso`) | Tablero con seis variables por ramo y por mes: siniestros, tasa de renovación, PQR, motivos de no compra, productos más cotizados y cotizado frente a vendido. Control de imparcialidad con aviso cuando una aseguradora supera el 40 % de las ventas del periodo. |
+| 1. Recepción y perfilamiento (T01–T03) | Cliente y plataforma | Solicitud con ciudad, ramo y autorización de datos (fecha, hora y versión; casilla aparte para datos sensibles en Salud y Vida). La plataforma clasifica: persona natural o jurídica (con NIT solo Pymes y RC) y póliza nueva o renovación. Luego el SARLAFT único, con pregunta adicional si es PEP y consulta de listas restrictivas. |
+| 2. Captura y validación (T04, T06, T07) | Cliente; asesor solo si se detiene | Formulario del ramo con los datos de la solicitud precargados. Si falta algo, el enlace muestra solo los campos pendientes; recordatorio a las 24 h, alerta al asesor a las 48 h y cierre a los 5 días hábiles con motivo «datos incompletos». El asesor registra el contacto. |
+| 3. Cotización (T08) | Plataforma | Comparativo homologado, ordenado por cobertura y precio. La comisión no ordena ni se muestra. |
+| 4. Asesoría y decisión (T09–T10) | Asesor y cliente | El asesor registra la recomendación con criterio obligatorio y no editable. El cliente acepta y firma con código, pide ajustes o declina con motivo de lista cerrada. |
+| 5. Suscripción, pago y emisión (T11–T14) | Aseguradora, cliente y plataforma | La aseguradora responde (estándar o con condiciones); el cliente acepta las condiciones o vuelve al comparativo, y paga. La póliza se emite y se entrega sola, y la venta queda registrada. **El asesor no digita nada en esta etapa.** |
+| 6. Siniestros y PQR (T15–T16) | Cliente y asesor | El cliente reporta desde su póliza con la lista de documentos de su ramo. El asesor radica, acompaña y cierra con resultado y valor pagado. |
+| 7. Renovación y retroalimentación (T15–T17) | Plataforma y cliente | 30 días antes del vencimiento la plataforma recotiza y envía la propuesta; el cliente renueva o no desde su enlace. Si pasan 5 días sin respuesta, el asesor lo llama. Todo alimenta el tablero de gerencia. |
+
+Accesos: el cliente entra por enlace, sin iniciar sesión (`/solicitud`); asesor y gerencia por `/ingreso`. Toda la navegación ocurre en la misma pestaña.
+
+- **Asesor.** *Mi trabajo* muestra solo las tareas que el TO-BE deja a su cargo, en orden de prioridad: acompañar siniestros y PQR (T16), registrar asesorías (T09), contactar clientes detenidos (T07) y llamar por renovaciones sin respuesta (T15).
+- **Gerencia.** Tablero con las seis variables por ramo y por mes, y control de imparcialidad con aviso cuando una aseguradora supera el 40 % de las ventas.
 
 El orden del comparativo es: mayor puntaje de cobertura y, a igual cobertura, menor prima. **La comisión de la agencia nunca interviene en el orden** ni sale en las respuestas que ven el cliente y el asesor.
 
-## Reglas del proceso TO-BE en el servicio
+## Dónde está cada tarea en el servicio
 
-| Regla | Tarea | Dónde está |
+| Tarea | Regla | Archivo |
 |---|---|---|
-| Autorización de datos con fecha, hora y versión | T01 | `api/src/servicios/solicitudes.ts`, `VERSION_AUTORIZACION` |
-| SARLAFT único | T03 | `api/src/validacion/sarlaft.ts` |
-| Validación campo por campo y enlace con solo los campos pendientes | T04, T06 | `api/src/validacion/`, `pendientes.ts`, `PUT /solicitudes/:token/borrador` |
-| Recordatorio a las 24 h, alerta al asesor a las 48 h, cierre a los 5 días hábiles | T07 | `api/src/servicios/seguimiento.ts` |
-| Comparativo sin comisión | T08 | `api/src/cotizacion/ordenarOfertas.ts` |
-| Criterio de la recomendación obligatorio | T09 | `api/src/validacion/asesoria.ts` |
-| Motivo de no compra de lista cerrada y aceptación con código | T10 | `api/src/servicios/solicitudes.ts` |
-| Renovación anticipada: recotización 30 días antes del vencimiento | T15 | `api/src/servicios/renovaciones.ts` |
-| Tablero con las seis variables y control de imparcialidad | T17 | `api/src/servicios/tablero.ts` |
-| Trazabilidad: bitácora de cada paso y cada aviso | 10.2 | `api/src/servicios/bitacora.ts` |
+| T01–T02 | Autorización con versión, datos sensibles, clasificación | `api/src/validacion/solicitud.ts`, `crearSolicitud` en `servicios/solicitudes.ts` |
+| T03 | SARLAFT único, PEP y listas restrictivas | `api/src/validacion/sarlaft.ts`, `guardarSarlaft` |
+| T04, T06, T07 | Validación por ramo, campos pendientes y plazos | `api/src/validacion/ramos.ts`, `pendientes.ts`, `servicios/seguimiento.ts` |
+| T08 | Motor y orden del comparativo | `api/src/cotizacion/` |
+| T09 | Criterio obligatorio | `api/src/validacion/asesoria.ts` |
+| T10 | Aceptación con código y motivo de no compra | `servicios/solicitudes.ts` |
+| T11–T14 | Suscripción, condiciones, pago, emisión y entrega | `api/src/cotizacion/suscripcion.ts`, `responderCondiciones` y `pagarPrima` |
+| T15–T16 (siniestros) | Reporte con documentos, radicación y cierre | `api/src/servicios/casos.ts` |
+| T15–T16 (renovación) | Recotización y decisión del cliente | `api/src/servicios/renovaciones.ts` |
+| T17 | Tablero | `api/src/servicios/tablero.ts` |
+| 10.2 del informe | Bitácora de cada paso | `api/src/servicios/bitacora.ts` |
 
 El seguimiento (T07 y T15) corre al arrancar el servicio y luego cada 10 minutos. Los días hábiles son de lunes a viernes; no se descuentan festivos.
 
@@ -94,7 +106,7 @@ docker-compose.yml   servicios db, api y web
 
 ## Pruebas
 
-**Vitest (api), 64 pruebas:** motor de cotización, orden del comparativo (incluida la prueba de que la comisión no lo altera), validaciones, sesión firmada, control de imparcialidad, plazos del seguimiento, campos pendientes, siguiente paso y renovación anticipada.
+**Vitest (api), 70 pruebas:** motor de cotización, orden del comparativo (incluida la prueba de que la comisión no lo altera), validaciones, sesión firmada, control de imparcialidad, plazos del seguimiento, campos pendientes, siguiente paso, suscripción, reporte de siniestros y renovación.
 
 ```bash
 cd api
@@ -108,7 +120,7 @@ Sin Node instalado, desde PowerShell en la carpeta del proyecto:
 docker run --rm -v "${PWD}\api:/app" -v as4_api_node_modules:/app/node_modules -w /app node:20 sh -c "npm ci && npx prisma generate && npm run typecheck && npm test"
 ```
 
-**Playwright (web):** corre contra la aplicación levantada con Docker, en escritorio y en celular. Cubre el flujo completo del cliente en Autos, «No me interesa», el inicio y la bandeja del asesor, la asesoría con criterio obligatorio, los campos pendientes, la emisión y el tablero.
+**Playwright (web):** corre contra la aplicación levantada con Docker, en escritorio y en celular. Cubre el recorrido del cliente por las etapas 1 a 6 en Autos (hasta reportar un siniestro), «No me interesa», el inicio y la bandeja del asesor, la asesoría con criterio obligatorio, los campos pendientes, la emisión sin intervención del asesor, el cierre de un siniestro, las renovaciones y el tablero.
 
 ```bash
 cd web
@@ -152,8 +164,10 @@ Para conectar una aseguradora real:
 - Las 8 aseguradoras, sus tarifas, deducibles y amparos.
 - Los recordatorios al cliente, las alertas al asesor y el envío de la propuesta de renovación: quedan en la bitácora de la solicitud, no se manda correo ni SMS.
 - El envío del código de confirmación: no se manda SMS; el código se muestra en pantalla y en el registro del servicio.
-- La consulta de listas restrictivas del SARLAFT, que no se hace.
-- La emisión: el asesor registra a mano el número y la vigencia de la póliza que expediría la aseguradora.
+- La consulta de listas restrictivas del SARLAFT: solo los documentos ficticios `1000000001` y `900000001` producen coincidencia.
+- La suscripción de la aseguradora (T11): responde de inmediato con reglas fijas por ramo (`suscripcion.ts`); en la operación real tarda horas o días.
+- El pago (T12), la emisión (T13) y la sincronización con el CRM (T14): no hay pasarela, sistema de la aseguradora ni CRM conectados.
+- Los documentos del siniestro: el cliente los marca en la lista; no se suben archivos.
 - Los clientes, siniestros y PQR de los datos de ejemplo.
 
 ## Qué faltaría para producción
@@ -161,7 +175,7 @@ Para conectar una aseguradora real:
 - Adaptadores reales con las aseguradoras y manejo de sus credenciales en un gestor de secretos.
 - Envío real del código, los recordatorios y las propuestas por SMS o correo; calendario de festivos para los días hábiles.
 - Consulta de listas restrictivas (SARLAFT) y firma electrónica de la solicitud.
-- Registro de siniestros y PQR desde la aplicación (hoy solo existen como datos de ejemplo para el tablero).
+- De la matriz no se implementaron, por depender de servicios externos o de captura muy detallada: la consulta por placa y la guía Fasecolda, la inspección virtual con fotos, el cuestionario de salud por asegurado, la calculadora de suma asegurada y los beneficiarios, la georreferenciación del inmueble, la plantilla de activos y el estudio de cupo de Pymes (T05), y las alertas de plazo de pago y de un mes sin pago del siniestro.
 - Límite de intentos de ingreso, recuperación de contraseña, administración de usuarios y auditoría de accesos.
 - HTTPS con cookie `Secure`, copias de seguridad de la base y monitoreo.
 - Política de tratamiento de datos publicada y procedimiento para consultas y reclamos de los titulares (Ley 1581 de 2012).

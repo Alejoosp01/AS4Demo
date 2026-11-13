@@ -818,3 +818,89 @@ details[open] > :not(summary) {
 .comparativo tr.comparativo__fila--marcada td {
   box-shadow: inset 0 2px 0 #9fc88a, inset 0 -2px 0 #9fc88a;
 }
+
+/* ---------- Flujo TO-BE: tareas, casos y renovación ---------- */
+
+.tarea__codigo,
+.panel-sigue__tarea {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 8px;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-blue-dark);
+  background: var(--color-white);
+  border: 1px solid var(--color-blue-100);
+  border-radius: 10px;
+  vertical-align: 2px;
+}
+
+.recorrido__nombre {
+  line-height: 1.2;
+}
+
+.caso {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-gray-50);
+  border: var(--border);
+  border-radius: 12px;
+}
+
+.caso > :last-child,
+.caso form > :last-child {
+  margin-bottom: 0;
+}
+
+.caso h3 {
+  margin-top: 0;
+}
+
+.registro-contacto {
+  margin: var(--space-4) 0;
+  padding-top: var(--space-3);
+  border-top: var(--border);
+}
+
+.historial-casos {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.historial-casos li {
+  margin-bottom: var(--space-2);
+}
+
+.renovacion__estado {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-gray-600);
+  background: var(--color-gray-50);
+  border-radius: var(--radius);
+}
+
+.renovacion__estado--llamar {
+  color: var(--color-red-dark);
+  background: var(--color-red-50);
+}
+
+.decision-telefono {
+  flex: 1 1 100%;
+  padding: var(--space-3);
+  background: var(--color-gray-50);
+  border-radius: 12px;
+}
+
+.decision-telefono__opcion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.decision-telefono__opcion .campo {
+  flex: 1 1 260px;
+  margin-bottom: 0;
+}

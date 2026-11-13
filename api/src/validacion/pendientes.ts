@@ -1,7 +1,7 @@
 import type { Ramo } from "../cotizacion/tipos";
 import { erroresPorCampo } from "./errores";
 import { ESQUEMAS_RAMO } from "./ramos";
-import { sarlaftSchema } from "./sarlaft";
+import { CAMPOS_SARLAFT, sarlaftSchema } from "./sarlaft";
 
 /** Nombre de cada campo tal como lo lee el asesor en la lista de datos pendientes. */
 const ETIQUETAS: Record<string, string> = {
@@ -26,6 +26,7 @@ const ETIQUETAS: Record<string, string> = {
   "sarlaft.egresosMensuales": "Egresos mensuales",
   "sarlaft.origenFondos": "Origen de los fondos",
   "sarlaft.personaExpuestaPoliticamente": "Persona expuesta políticamente",
+  "sarlaft.cargoPep": "Cargo público y entidad",
   "sarlaft.declaraOrigenLicito": "Declaración de origen lícito",
 };
 
@@ -60,7 +61,7 @@ export function limpiarBorrador(ramo: Ramo, entrada: unknown): Borrador {
   const cuerpo = esObjeto(entrada) ? entrada : {};
   return {
     datosRamo: soloConocidos(cuerpo.datosRamo, Object.keys(ESQUEMAS_RAMO[ramo].shape)),
-    sarlaft: soloConocidos(cuerpo.sarlaft, Object.keys(sarlaftSchema.shape)),
+    sarlaft: soloConocidos(cuerpo.sarlaft, CAMPOS_SARLAFT),
   };
 }
 

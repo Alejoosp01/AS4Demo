@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { USUARIOS, ingresar, solicitudCotizada } from "./apoyo";
+import { USUARIOS, ingresar, polizaEmitida, solicitudCotizada } from "./apoyo";
 
 test("sin sesión, la sección del asesor lleva al ingreso", async ({ page }) => {
   await page.goto("/asesor");
@@ -54,36 +54,69 @@ test("la solicitud aparece en la bandeja y la asesoría exige criterio", async (
   await expect(page.getByText(/Asesoría registrada: recomienda/)).toBeVisible();
 });
 
-test("el asesor emite la póliza de una solicitud aceptada", async ({ page, request }) => {
+test("en la etapa 5 el asesor no digita la póliza: se emite con el pago del cliente", async ({ page, request }) => {
   const s = await solicitudCotizada(request, "Paola Suárez Beltrán");
-  const andina = s.ofertas.find((o) => o.aseguradoraNombre === "Aseguradora Andina") ?? s.ofertas[0];
-  const eleccion = await request.post(`/api/solicitudes/${s.token}/eleccion`, { data: { ofertaId: andina.id } });
+  const eleccion = await request.post(`/api/solicitudes/${s.token}/eleccion`, { data: { ofertaId: s.ofertas[0].id } });
   const { aceptacion } = await eleccion.json();
   await request.post(`/api/solicitudes/${s.token}/confirmacion`, { data: { codigo: aceptacion.codigo } });
 
   await ingresar(page, USUARIOS.asesor);
   await page.goto(`/asesor/solicitudes/${s.id}`);
   await expect(page.getByText("Aceptada").first()).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Emitir la póliza" })).toBeVisible();
+  const sigue = page.getByRole("region", { name: "Esperar el pago de la prima" });
+  await expect(sigue.getByText("Le corresponde al cliente")).toBeVisible();
+  await expect(page.getByLabel("Número de póliza")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Suscripción de la aseguradora" })).toBeVisible();
 
-  const numero = `AUT-E2E-${s.documento.slice(-8)}`;
-  await page.getByLabel("Número de póliza").fill(numero);
-  await page.getByRole("button", { name: "Marcar como emitida" }).click();
-  await expect(page.getByRole("heading", { name: "Póliza", exact: true })).toBeVisible();
-  await expect(page.getByText(numero, { exact: true })).toBeVisible();
+  await request.post(`/api/solicitudes/${s.token}/pago`, { data: { formaPago: "DEBITO" } });
+  await page.reload();
   await expect(page.getByText("Emitida").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Póliza", exact: true })).toBeVisible();
+  await expect(page.getByText(/expidió la póliza AUT-/)).toBeVisible();
+  await expect(page.getByText(/Venta y comisión registradas en el CRM/)).toBeVisible();
+});
 
+test("el asesor radica y cierra el siniestro que reportó el cliente", async ({ page, request }) => {
+  const s = await polizaEmitida(request, "Felipe Arango Quintero");
+  const hoy = new Date();
+  const fechaEvento = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+  const reporte = await request.post(`/api/solicitudes/${s.token}/siniestros`, {
+    data: { fechaEvento, lugar: "Medellín", descripcion: "Hurto de espejos en parqueadero público.", documentos: ["fotos", "licencia"] },
+  });
+  expect(reporte.ok()).toBeTruthy();
+
+  await ingresar(page, USUARIOS.asesor);
+  await page.goto(`/asesor/solicitudes/${s.id}`);
+  const sigue = page.getByRole("region", { name: "Acompañar al cliente en su caso" });
+  await expect(sigue.getByText("Le corresponde a usted")).toBeVisible();
+  await sigue.getByRole("button", { name: "Radicar la reclamación" }).click();
+
+  await sigue.getByRole("button", { name: "Cerrar el siniestro" }).click();
+  await expect(sigue.getByText("Indique el resultado de la reclamación")).toBeVisible();
+  await sigue.getByLabel("Pagado").check();
+  await sigue.getByLabel("Valor pagado").fill("850000");
+  await sigue.getByRole("button", { name: "Cerrar el siniestro" }).click();
+
+  await expect(page.getByRole("heading", { name: "Sin tareas pendientes" })).toBeVisible();
+  await expect(page.getByText(/Cerrado.*pagado por \$ 850\.000/).first()).toBeVisible();
+});
+
+test("las renovaciones traen la recotización y el asesor solo registra la decisión del cliente", async ({ page }) => {
+  await ingresar(page, USUARIOS.asesor);
   await page.getByRole("link", { name: "Renovaciones", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Renovaciones" })).toBeVisible();
-  // Las pólizas por vencer ya traen la recotización automática.
   await expect(page.getByText(/Ver la recotización completa/).first()).toBeVisible();
+  await expect(page.getByText("le corresponde llamar").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Registrar la decisión del cliente" }).first()).toBeVisible();
+  // Ningún enlace de la aplicación abre otra pestaña.
+  expect(await page.locator("a[target]").count()).toBe(0);
 });
 
 test("el inicio del asesor ordena las tareas y lleva a la acción", async ({ page }) => {
   await ingresar(page, USUARIOS.asesor);
   await expect(page.getByText(/Tiene \d+ tareas? pendientes?/)).toBeVisible();
   const titulos = await page.locator(".tarea h2").allInnerTexts();
-  const orden = ["Emitir pólizas", "Registrar asesorías", "Contactar clientes detenidos", "Gestionar renovaciones"];
+  const orden = ["Acompañar siniestros y PQR", "Registrar asesorías", "Contactar clientes detenidos", "Llamar por renovaciones sin respuesta"];
   const presentes = titulos.map((t) => orden.findIndex((o) => t.startsWith(o)));
   expect(presentes.every((i) => i >= 0)).toBeTruthy();
   expect([...presentes].sort((a, b) => a - b)).toEqual(presentes);
@@ -96,7 +129,7 @@ test("el inicio del asesor ordena las tareas y lleva a la acción", async ({ pag
 test("el asesor ve qué datos le faltan al cliente y el cliente solo completa esos", async ({ page, request }) => {
   const documento = String(Date.now()).slice(-10) + "7";
   const creada = await request.post("/api/solicitudes", {
-    data: { nombre: "Yolanda Pineda Castro", tipoDocumento: "CC", numeroDocumento: documento, correo: "prueba@correo.example", telefono: "3001112233", ramo: "AUTOS", autorizaDatos: true },
+    data: { nombre: "Yolanda Pineda Castro", tipoDocumento: "CC", numeroDocumento: documento, correo: "prueba@correo.example", telefono: "3001112233", ciudad: "medellin", ramo: "AUTOS", autorizaDatos: true },
   });
   const { token } = await creada.json();
   const borrador = await request.put(`/api/solicitudes/${token}/borrador`, {

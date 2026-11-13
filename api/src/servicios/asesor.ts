@@ -4,14 +4,15 @@ import { RAMOS } from "../cotizacion/tipos";
 import { ErrorDeNegocio, ErrorValidacion } from "../errores";
 import { asesoriaSchema } from "../validacion/asesoria";
 import { erroresPorCampo } from "../validacion/errores";
-import { emisionSchema, renovacionSchema } from "../validacion/interno";
+import { contactoSchema } from "../validacion/interno";
 import { registrarEvento } from "./bitacora";
 import { type OfertaRenovacion, ventanaDeRenovacion } from "./renovaciones";
-import { type CodigoPaso, diasParaVencer, siguientePaso } from "./siguientePaso";
+import { type CodigoPaso, DIAS_SIN_RESPUESTA_RENOVACION, diasParaVencer, renovacionSinRespuesta, siguientePaso } from "./siguientePaso";
 import { buscarPorId } from "./solicitudes";
 
 const POR_PAGINA = 25;
 const ESTADOS = Object.values(EstadoSolicitud) as string[];
+const DIA_MS = 24 * 60 * 60 * 1000;
 
 interface Filtros {
   q?: string;
@@ -22,19 +23,36 @@ interface Filtros {
   pagina?: string;
 }
 
+const CON_CASO_ABIERTO: Prisma.SolicitudWhereInput = {
+  OR: [{ poliza: { siniestros: { some: { estado: { not: "CERRADO" } } } } }, { pqrs: { some: { estado: { not: "CERRADA" } } } }],
+};
+
 // Filtros de la bandeja por lo que hay que hacer, no solo por estado.
 const TAREAS: Record<string, Prisma.SolicitudWhereInput> = {
+  casos: { estado: EstadoSolicitud.EMITIDA, ...CON_CASO_ABIERTO },
   asesorar: { estado: EstadoSolicitud.COTIZADA },
-  emitir: { estado: EstadoSolicitud.ACEPTADA },
   contactar: { estado: EstadoSolicitud.NUEVA, alertaAsesorEn: { not: null } },
-  cliente: { OR: [{ estado: EstadoSolicitud.ASESORADA }, { estado: EstadoSolicitud.NUEVA, alertaAsesorEn: null }] },
+  cliente: {
+    OR: [
+      { estado: { in: [EstadoSolicitud.ASESORADA, EstadoSolicitud.ACEPTADA] } },
+      { estado: EstadoSolicitud.NUEVA, alertaAsesorEn: null },
+    ],
+  },
 };
 
 const paraPaso = {
   asesor: true,
   asesoria: { select: { id: true } },
-  aceptacion: { select: { confirmadaEn: true } },
-  poliza: { select: { fechaVencimiento: true, estadoRenovacion: true } },
+  aceptacion: { select: { confirmadaEn: true, suscripcionResultado: true, condicionesAceptadasEn: true } },
+  poliza: {
+    select: {
+      fechaVencimiento: true,
+      estadoRenovacion: true,
+      propuestaRenovacion: { select: { enviadaEn: true, decision: true } },
+      _count: { select: { siniestros: { where: { estado: { not: "CERRADO" } } } } },
+    },
+  },
+  _count: { select: { pqrs: { where: { estado: { not: "CERRADA" } } } } },
 } satisfies Prisma.SolicitudInclude;
 
 type SolicitudConPaso = Prisma.SolicitudGetPayload<{ include: typeof paraPaso }>;
@@ -45,6 +63,9 @@ const pasoDe = (s: SolicitudConPaso, hoy: Date) =>
     alertaAsesorEn: s.alertaAsesorEn,
     tieneAsesoria: Boolean(s.asesoria),
     eleccionSinConfirmar: Boolean(s.aceptacion && !s.aceptacion.confirmadaEn),
+    condicionesPendientes: Boolean(s.aceptacion?.suscripcionResultado === "CON_CONDICIONES" && !s.aceptacion.condicionesAceptadasEn),
+    casosAbiertos: (s.poliza?._count.siniestros ?? 0) + s._count.pqrs,
+    renovacionDecidida: Boolean(s.poliza?.propuestaRenovacion?.decision),
     poliza: s.poliza,
   }, hoy);
 
@@ -92,12 +113,11 @@ export async function bandeja(filtros: Filtros, asesorId: number) {
       ramo: s.ramo,
       estado: s.estado,
       asesor: s.asesor?.nombre ?? null,
-      siguientePaso: (({ codigo, responsable, titulo }) => ({ codigo, responsable, titulo }))(pasoDe(s, hoy)),
+      siguientePaso: (({ codigo, responsable, titulo, tarea }) => ({ codigo, responsable, titulo, tarea }))(pasoDe(s, hoy)),
     })),
   };
 }
 
-const DIA_MS = 24 * 60 * 60 * 1000;
 const POR_TAREA = 5;
 
 const dias = (n: number) => (n === 0 ? "hoy" : n === 1 ? "hace 1 día" : `hace ${n} días`);
@@ -105,6 +125,7 @@ const diasDesde = (fecha: Date, hoy: Date) => Math.max(0, Math.floor((hoy.getTim
 
 interface TareaResumen {
   codigo: CodigoPaso;
+  tarea: string;
   titulo: string;
   porque: string;
   accion: string;
@@ -114,18 +135,27 @@ interface TareaResumen {
 }
 
 /**
- * Inicio del asesor: sus solicitudes agrupadas por lo que tiene que hacer, en orden de prioridad.
- * Primero lo que el cliente ya decidió (emitir), luego asesorar, luego los clientes detenidos y las renovaciones.
+ * Inicio del asesor: solo las tareas que el TO-BE deja a su cargo, en orden de prioridad.
+ * Primero los momentos de verdad (siniestros y PQR), luego asesorar, destrabar datos y renovaciones sin respuesta.
  */
 export async function resumenAsesor(asesorId: number, hoy = new Date()) {
   const mias = { asesorId };
   const { desde, hasta } = ventanaDeRenovacion(hoy);
-  const [porEmitir, porAsesorar, porContactar, renovaciones, esperandoCliente] = await Promise.all([
-    prisma.solicitud.findMany({ where: { ...mias, ...TAREAS.emitir }, include: { aceptacion: true }, orderBy: { actualizadaEn: "asc" } }),
+  const limiteRespuesta = new Date(hoy.getTime() - DIAS_SIN_RESPUESTA_RENOVACION * DIA_MS);
+  const [conCasos, porAsesorar, porContactar, renovaciones, esperandoCliente] = await Promise.all([
+    prisma.solicitud.findMany({
+      where: { ...mias, ...TAREAS.casos },
+      include: { poliza: { include: { siniestros: { where: { estado: { not: "CERRADO" } } } } }, pqrs: { where: { estado: { not: "CERRADA" } } } },
+    }),
     prisma.solicitud.findMany({ where: { ...mias, ...TAREAS.asesorar }, include: { _count: { select: { ofertas: true } } }, orderBy: { actualizadaEn: "asc" } }),
     prisma.solicitud.findMany({ where: { ...mias, ...TAREAS.contactar }, orderBy: { creadaEn: "asc" } }),
     prisma.poliza.findMany({
-      where: { solicitud: mias, fechaVencimiento: { gte: desde, lt: hasta }, estadoRenovacion: EstadoRenovacion.PENDIENTE },
+      where: {
+        solicitud: mias,
+        fechaVencimiento: { gte: desde, lt: hasta },
+        estadoRenovacion: EstadoRenovacion.PENDIENTE,
+        propuestaRenovacion: { decision: null, enviadaEn: { lte: limiteRespuesta } },
+      },
       include: { solicitud: true },
       orderBy: { fechaVencimiento: "asc" },
     }),
@@ -134,19 +164,23 @@ export async function resumenAsesor(asesorId: number, hoy = new Date()) {
 
   const tareas: TareaResumen[] = [
     {
-      codigo: "EMITIR_POLIZA",
-      titulo: "Emitir pólizas",
-      porque: "El cliente ya aceptó una oferta y espera su póliza.",
-      accion: "Emitir",
-      total: porEmitir.length,
-      filtro: "tarea=emitir&asignacion=mias",
-      elementos: porEmitir.slice(0, POR_TAREA).map((s) => {
-        const espera = diasDesde(s.aceptacion?.confirmadaEn ?? s.actualizadaEn, hoy);
-        return { solicitudId: s.id, nombre: s.nombre, ramo: s.ramo, detalle: `Aceptó ${dias(espera)}`, urgente: espera >= 3 };
+      codigo: "ATENDER_CASO",
+      tarea: "T16",
+      titulo: "Acompañar siniestros y PQR",
+      porque: "Es el momento de verdad: el cliente reportó un caso y necesita que usted lo radique y lo acompañe hasta el cierre.",
+      accion: "Atender",
+      total: conCasos.length,
+      filtro: "tarea=casos&asignacion=mias",
+      elementos: conCasos.slice(0, POR_TAREA).map((s) => {
+        const siniestros = s.poliza?.siniestros ?? [];
+        const primero = [...siniestros.map((x) => x.fechaReporte), ...s.pqrs.map((x) => x.fecha)].sort((a, b) => a.getTime() - b.getTime())[0];
+        const que = [siniestros.length > 0 ? (siniestros.length === 1 ? "1 siniestro" : `${siniestros.length} siniestros`) : "", s.pqrs.length > 0 ? `${s.pqrs.length} PQR` : ""].filter(Boolean).join(" y ");
+        return { solicitudId: s.id, nombre: s.nombre, ramo: s.ramo, detalle: `${que} · reportado ${dias(diasDesde(primero, hoy))}`, urgente: true };
       }),
     },
     {
       codigo: "REGISTRAR_ASESORIA",
+      tarea: "T09",
       titulo: "Registrar asesorías",
       porque: "El comparativo está listo y el cliente espera su recomendación.",
       accion: "Asesorar",
@@ -159,6 +193,7 @@ export async function resumenAsesor(asesorId: number, hoy = new Date()) {
     },
     {
       codigo: "CONTACTAR_CLIENTE",
+      tarea: "T07",
       titulo: "Contactar clientes detenidos",
       porque: "Llevan más de 48 horas sin completar sus datos; la solicitud se cierra a los cinco días hábiles.",
       accion: "Contactar",
@@ -169,10 +204,11 @@ export async function resumenAsesor(asesorId: number, hoy = new Date()) {
       })),
     },
     {
-      codigo: "GESTIONAR_RENOVACION",
-      titulo: "Gestionar renovaciones",
-      porque: "Vencen en los próximos 30 días y la plataforma ya envió la propuesta recotizada.",
-      accion: "Gestionar",
+      codigo: "LLAMAR_RENOVACION",
+      tarea: "T15",
+      titulo: "Llamar por renovaciones sin respuesta",
+      porque: "El cliente recibió la propuesta recotizada hace más de cinco días y no ha decidido.",
+      accion: "Llamar",
       total: renovaciones.length,
       filtro: "",
       elementos: renovaciones.slice(0, POR_TAREA).map((p) => {
@@ -208,34 +244,17 @@ export async function registrarAsesoria(id: number, asesorId: number, entrada: u
   return buscarPorId(id);
 }
 
-export async function emitirPoliza(id: number, asesor: string, entrada: unknown) {
+/** T07: el contacto del asesor con el cliente queda registrado en la solicitud. */
+export async function registrarContacto(id: number, asesor: string, entrada: unknown) {
   const solicitud = await buscarPorId(id);
-  if (solicitud.estado !== EstadoSolicitud.ACEPTADA || !solicitud.aceptacion?.confirmadaEn) {
-    throw new ErrorDeNegocio(409, "Solo se emiten pólizas de solicitudes aceptadas por el cliente.");
-  }
-  const resultado = emisionSchema.safeParse(entrada);
+  const resultado = contactoSchema.safeParse(entrada);
   if (!resultado.success) throw new ErrorValidacion(erroresPorCampo(resultado.error));
-  const existe = await prisma.poliza.findUnique({ where: { numero: resultado.data.numero } });
-  if (existe) throw new ErrorValidacion({ numero: "Ya existe una póliza con ese número" });
-
-  await prisma.$transaction([
-    prisma.poliza.create({
-      data: {
-        solicitudId: id,
-        ofertaId: solicitud.aceptacion.ofertaId,
-        numero: resultado.data.numero,
-        fechaEmision: new Date(),
-        fechaVencimiento: resultado.data.fechaVencimiento,
-      },
-    }),
-    prisma.solicitud.update({ where: { id }, data: { estado: EstadoSolicitud.EMITIDA } }),
-    registrarEvento(prisma, id, "EMISION", `Póliza ${resultado.data.numero} emitida.`, asesor),
-  ]);
+  await registrarEvento(prisma, solicitud.id, "CONTACTO", `Contacto con el cliente: ${resultado.data.nota}`, asesor);
   return buscarPorId(id);
 }
 
-export async function renovacionesProximas(dias = 30, hoy = new Date()) {
-  const { desde, hasta } = ventanaDeRenovacion(hoy, dias);
+export async function renovacionesProximas(diasVentana = 30, hoy = new Date()) {
+  const { desde, hasta } = ventanaDeRenovacion(hoy, diasVentana);
   const polizas = await prisma.poliza.findMany({
     where: { fechaVencimiento: { gte: desde, lt: hasta }, estadoRenovacion: EstadoRenovacion.PENDIENTE },
     orderBy: { fechaVencimiento: "asc" },
@@ -247,6 +266,7 @@ export async function renovacionesProximas(dias = 30, hoy = new Date()) {
       id: p.id,
       numero: p.numero,
       solicitudId: p.solicitudId,
+      token: p.solicitud.token,
       tomador: p.solicitud.nombre,
       telefono: p.solicitud.telefono,
       correo: p.solicitud.correo,
@@ -257,19 +277,9 @@ export async function renovacionesProximas(dias = 30, hoy = new Date()) {
       diasRestantes: diasParaVencer(p.fechaVencimiento, hoy),
       asesor: p.solicitud.asesor?.nombre ?? null,
       // Recotización automática (T15). La lista ya viene ordenada por cobertura y, a igualdad, menor prima.
-      propuesta: p.propuestaRenovacion ? { enviadaEn: p.propuestaRenovacion.enviadaEn, ofertas } : null,
+      propuesta: p.propuestaRenovacion
+        ? { enviadaEn: p.propuestaRenovacion.enviadaEn, sinRespuesta: renovacionSinRespuesta(p.propuestaRenovacion.enviadaEn, hoy), ofertas }
+        : null,
     };
   });
-}
-
-export async function marcarRenovacion(polizaId: number, asesor: string, entrada: unknown) {
-  const resultado = renovacionSchema.safeParse(entrada);
-  if (!resultado.success) throw new ErrorValidacion(erroresPorCampo(resultado.error));
-  const poliza = await prisma.poliza.findUnique({ where: { id: polizaId } });
-  if (!poliza) throw new ErrorDeNegocio(404, "No encontramos la póliza.");
-  const renovada = resultado.data.estado === EstadoRenovacion.RENOVADA;
-  await prisma.$transaction([
-    prisma.poliza.update({ where: { id: polizaId }, data: { estadoRenovacion: resultado.data.estado } }),
-    registrarEvento(prisma, poliza.solicitudId, "RENOVACION", `Póliza ${poliza.numero} marcada como ${renovada ? "renovada" : "no renovada"}.`, asesor),
-  ]);
 }

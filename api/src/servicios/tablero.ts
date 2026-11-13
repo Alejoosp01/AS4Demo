@@ -75,7 +75,7 @@ export async function tablero(meses: number, ramo: Ramo | null, hoy = new Date()
     prisma.aseguradora.findMany({ where: { activa: true }, select: { nombre: true, comisionPct: true } }),
   ]);
 
-  const cotizadas = solicitudes.filter((s) => s.estado !== EstadoSolicitud.NUEVA && s.estado !== EstadoSolicitud.CERRADA);
+  const cotizadas = solicitudes.filter((s) => s.estado !== EstadoSolicitud.NUEVA && s.estado !== EstadoSolicitud.CERRADA && s.estado !== EstadoSolicitud.EN_CUMPLIMIENTO);
 
   return {
     meses: lista,
@@ -95,10 +95,14 @@ export async function tablero(meses: number, ramo: Ramo | null, hoy = new Date()
       const tipos = Object.fromEntries(Object.values(TipoPqr).map((t) => [t, delMes.filter((p) => p.tipo === t).length]));
       return { mes: clave, ...tipos, total: delMes.length };
     }),
-    motivos: Object.values(MotivoNoInteres).map((motivo) => ({
-      motivo,
-      cantidad: solicitudes.filter((s) => s.motivoNoInteres === motivo).length,
-    })),
+    motivos: [
+      ...Object.values(MotivoNoInteres).map((motivo) => ({
+        motivo: motivo as string,
+        cantidad: solicitudes.filter((s) => s.motivoNoInteres === motivo).length,
+      })),
+      // El cierre automático por datos incompletos (T06) también es una razón de no compra.
+      { motivo: "DATOS_INCOMPLETOS", cantidad: solicitudes.filter((s) => s.estado === EstadoSolicitud.CERRADA).length },
+    ],
     productos: RAMOS.map((r) => ({ ramo: r, cotizadas: cotizadas.filter((s) => s.ramo === r).length }))
       .filter((p) => !ramo || p.ramo === ramo)
       .sort((a, b) => b.cotizadas - a.cotizadas),

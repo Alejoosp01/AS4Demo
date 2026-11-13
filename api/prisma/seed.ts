@@ -22,6 +22,9 @@ import {
 import type { Oferta } from "../src/cotizacion/tipos";
 import { digitoVerificacionNit } from "../src/validacion/nit";
 import { validarDatosRamo } from "../src/validacion/ramos";
+import { REVISION_POR_RAMO, evaluarSuscripcion } from "../src/cotizacion/suscripcion";
+import { DOCUMENTOS_SINIESTRO, NOMBRES_RAMO } from "../src/catalogos";
+import { RAMOS_CON_DATOS_SENSIBLES } from "../src/validacion/solicitud";
 import { sarlaftSchema } from "../src/validacion/sarlaft";
 import { NOMBRES_MOTIVO } from "../src/catalogos";
 import { AUTOR_CLIENTE, AUTOR_PLATAFORMA, type TipoEvento } from "../src/servicios/bitacora";
@@ -187,6 +190,10 @@ interface PolizaCreada {
   ramo: Ramo;
   fechaEmision: Date;
   fechaVencimiento: Date;
+  solicitudId: number;
+  asesorId: number;
+  asesorNombre: string;
+  prima: number;
 }
 
 function buildPlans(today: Date): SolicitudPlan[] {
@@ -319,6 +326,9 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
         numeroDocumento: String(between(10_000_000, 1_150_000_000)),
         correo: `cliente${between(1000, 9999)}@correo.example`,
         telefono: `3${between(0, 2)}${between(0, 9)}${between(1_000_000, 9_999_999)}`,
+        ciudad: pick(claves(CIUDADES)),
+        tipoCliente: plan.ramo === Ramo.PYMES ? "JURIDICA" : "NATURAL",
+        autorizaDatosSensibles: RAMOS_CON_DATOS_SENSIBLES.includes(plan.ramo),
         autorizaDatos: true,
         autorizaDatosEn: plan.creadaEn,
         autorizaDatosVersion: VERSION_AUTORIZACION,
@@ -338,6 +348,7 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
     const evento = (tipo: TipoEvento, detalle: string, autor: string, dias: number) =>
       tx.evento.create({ data: { solicitudId: solicitud.id, tipo, detalle, autor, creadoEn: new Date(plan.creadaEn.getTime() + dias * DAY_MS) } });
     await evento("SOLICITUD", `Solicitud recibida con autorización de tratamiento de datos, versión ${VERSION_AUTORIZACION}.`, AUTOR_CLIENTE, 0);
+    await evento("CLASIFICACION", `Clasificada como persona ${plan.ramo === Ramo.PYMES ? "jurídica" : "natural"}, póliza nueva. Se envió el enlace del formulario de ${NOMBRES_RAMO[plan.ramo]}.`, AUTOR_PLATAFORMA, 0.001);
     if (Array.isArray(plan.sinDiligenciar)) {
       const faltan = plan.sinDiligenciar.length;
       await evento("DATOS_PARCIALES", `El cliente guardó datos parciales del formulario; ${faltan === 1 ? "queda 1 campo pendiente" : `quedan ${faltan} campos pendientes`}.`, AUTOR_CLIENTE, 0.01);
@@ -366,7 +377,7 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
       });
       ofertas.push({ ...oferta, id: created.id });
     }
-    await evento("COTIZACION", `Datos completos y SARLAFT único recibidos. La plataforma cotizó con ${adaptadores.length} aseguradoras y obtuvo ${ofertas.length} ${ofertas.length === 1 ? "oferta" : "ofertas"}.`, AUTOR_PLATAFORMA, 0.05);
+    await evento("COTIZACION", `SARLAFT único y datos del ramo validados; sin coincidencias en listas restrictivas. La plataforma cotizó con ${adaptadores.length} aseguradoras y obtuvo ${ofertas.length} ${ofertas.length === 1 ? "oferta" : "ofertas"}.`, AUTOR_PLATAFORMA, 0.05);
     if (ofertas.length === 0) continue;
     const asesorNombre = USUARIOS.filter((u) => u.rol === Rol.ASESOR)[asesorIds.indexOf(asesorId)].nombre;
 
@@ -396,6 +407,7 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
     await tx.oferta.update({ where: { id: elegida.id }, data: { elegida: true } });
 
     const aceptadaEn = addDays(plan.creadaEn, 2);
+    const suscripcion = evaluarSuscripcion(cotizable, plan.creadaEn.getFullYear());
     await tx.aceptacion.create({
       data: {
         solicitudId: solicitud.id,
@@ -403,9 +415,16 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
         codigo: String(between(100_000, 999_999)),
         generadaEn: aceptadaEn,
         confirmadaEn: aceptadaEn,
+        suscripcionResultado: suscripcion.resultado,
+        suscripcionDetalle: suscripcion.detalle,
+        suscritaEn: aceptadaEn,
+        // Las pólizas ya emitidas pasaron por la aceptación de condiciones; las aceptadas siguen pendientes.
+        condicionesAceptadasEn: plan.poliza && suscripcion.resultado === "CON_CONDICIONES" ? aceptadaEn : null,
       },
     });
-    await evento("ACEPTACION", `El cliente eligió la oferta de ${elegida.aseguradoraNombre} y confirmó la aceptación con el código de seis dígitos.`, AUTOR_CLIENTE, 2);
+    await evento("ACEPTACION", `El cliente aceptó la oferta de ${elegida.aseguradoraNombre} y firmó electrónicamente con el código de seis dígitos.`, AUTOR_CLIENTE, 2);
+    await evento("RADICACION", `La plataforma radicó la solicitud y los soportes del ramo ante ${elegida.aseguradoraNombre}.`, AUTOR_PLATAFORMA, 2.001);
+    await evento("SUSCRIPCION", `${REVISION_POR_RAMO[plan.ramo]}: ${suscripcion.detalle}`, elegida.aseguradoraNombre, 2.002);
 
     if (plan.poliza) {
       consecutivoPoliza += between(1, 9);
@@ -417,18 +436,22 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
           fechaEmision: plan.poliza.fechaEmision,
           fechaVencimiento: plan.poliza.fechaVencimiento,
           estadoRenovacion: plan.poliza.estadoRenovacion,
+          formaPago: pick(["CONTADO", "CONTADO", "FINANCIADO", "DEBITO"]),
+          pagadaEn: plan.poliza.fechaEmision,
         },
       });
-      await tx.evento.create({
-        data: { solicitudId: solicitud.id, tipo: "EMISION", detalle: `Póliza ${poliza.numero} emitida.`, autor: asesorNombre, creadoEn: poliza.fechaEmision },
-      });
+      const paso = (tipo: TipoEvento, detalle: string, autor: string, ms: number) =>
+        tx.evento.create({ data: { solicitudId: solicitud.id, tipo, detalle, autor, creadoEn: new Date(poliza.fechaEmision.getTime() + ms) } });
+      await paso("PAGO", "Pago de la prima confirmado (pasarela simulada).", AUTOR_CLIENTE, 0);
+      await paso("EMISION", `${elegida.aseguradoraNombre} expidió la póliza ${poliza.numero}.`, elegida.aseguradoraNombre, 1000);
+      await paso("ENTREGA", `Póliza enviada a ${solicitud.correo} con el resumen de coberturas. Venta y comisión registradas en el CRM (sincronización simulada).`, AUTOR_PLATAFORMA, 2000);
       if (plan.poliza.estadoRenovacion !== EstadoRenovacion.PENDIENTE) {
         const renovada = plan.poliza.estadoRenovacion === EstadoRenovacion.RENOVADA;
         await tx.evento.create({
           data: { solicitudId: solicitud.id, tipo: "RENOVACION", detalle: `Póliza ${poliza.numero} marcada como ${renovada ? "renovada" : "no renovada"}.`, autor: asesorNombre, creadoEn: addDays(poliza.fechaVencimiento, -8) },
         });
       }
-      polizas.push({ id: poliza.id, ramo: plan.ramo, fechaEmision: poliza.fechaEmision, fechaVencimiento: poliza.fechaVencimiento });
+      polizas.push({ id: poliza.id, ramo: plan.ramo, fechaEmision: poliza.fechaEmision, fechaVencimiento: poliza.fechaVencimiento, solicitudId: solicitud.id, asesorId, asesorNombre, prima: elegida.primaAnual });
     }
   }
 
@@ -439,14 +462,59 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
     const desde = Math.max(poliza.fechaEmision.getTime(), inicioPeriodo.getTime());
     const hasta = Math.min(poliza.fechaVencimiento.getTime(), today.getTime());
     if (hasta - desde < DAY_MS) continue;
+    // Siniestros ya cerrados: reportados por el cliente, radicados por el asesor y pagados u objetados.
+    const fechaReporte = new Date(desde + Math.floor(random() * (hasta - desde)));
+    const pagado = random() < 0.8;
     await tx.siniestro.create({
       data: {
         polizaId: poliza.id,
-        fechaReporte: new Date(desde + Math.floor(random() * (hasta - desde))),
+        fechaReporte,
+        fechaEvento: addDays(fechaReporte, -between(0, 2)),
+        lugar: CIUDADES[pick(claves(CIUDADES))].nombre,
         descripcion: pick(SINIESTROS[poliza.ramo]),
+        documentos: [],
+        estado: "CERRADO",
+        radicadoEn: addDays(fechaReporte, 1),
+        cerradoEn: new Date(Math.min(today.getTime(), addDays(fechaReporte, between(6, 28)).getTime())),
+        resultado: pagado ? "PAGADO" : "OBJETADO",
+        valorPagado: pagado ? between(4, 60) * 100_000 : 0,
       },
     });
     siniestros += 1;
+  }
+
+  // Casos abiertos para que cada asesor tenga un siniestro por acompañar (T16): uno recién reportado y otro ya radicado.
+  const vigentes = polizas.filter((p) => p.fechaEmision.getTime() < today.getTime() - 20 * DAY_MS && p.fechaVencimiento.getTime() > today.getTime() + 40 * DAY_MS);
+  const abiertos: [PolizaCreada | undefined, string, number][] = [
+    [vigentes.find((p) => p.asesorId === asesorIds[0]), "REPORTADO", 1],
+    [vigentes.find((p) => p.asesorId === asesorIds[1]), "RADICADO", 6],
+  ];
+  for (const [poliza, estado, diasAtras] of abiertos) {
+    if (!poliza) continue;
+    const fechaReporte = addDays(today, -diasAtras);
+    await tx.siniestro.create({
+      data: {
+        polizaId: poliza.id,
+        fechaReporte,
+        fechaEvento: addDays(fechaReporte, -1),
+        lugar: CIUDADES[pick(claves(CIUDADES))].nombre,
+        descripcion: `${pick(SINIESTROS[poliza.ramo])}. El cliente pide orientación sobre los pasos a seguir.`,
+        documentos: DOCUMENTOS_SINIESTRO[poliza.ramo].filter((d) => d.obligatorio).map((d) => d.codigo),
+        estado,
+        radicadoEn: estado === "RADICADO" ? addDays(fechaReporte, 1) : null,
+      },
+    });
+    await tx.evento.create({ data: { solicitudId: poliza.solicitudId, tipo: "SINIESTRO", detalle: "El cliente reportó un siniestro con 2 documentos.", autor: AUTOR_CLIENTE, creadoEn: fechaReporte } });
+    if (estado === "RADICADO") {
+      await tx.evento.create({ data: { solicitudId: poliza.solicitudId, tipo: "SINIESTRO", detalle: "Reclamación radicada ante la aseguradora.", autor: poliza.asesorNombre, creadoEn: addDays(fechaReporte, 1) } });
+    }
+  }
+  const conPqr = vigentes.filter((p) => p.asesorId === asesorIds[0])[1];
+  if (conPqr) {
+    await tx.pqr.create({
+      data: { ramo: conPqr.ramo, tipo: TipoPqr.PETICION, fecha: addDays(today, -2), asunto: "Solicitud de certificado de la póliza", descripcion: "Necesito un certificado de la póliza para presentarlo en el banco esta semana.", estado: "ABIERTA", solicitudId: conPqr.solicitudId },
+    });
+    await tx.evento.create({ data: { solicitudId: conPqr.solicitudId, tipo: "PQR", detalle: "El cliente radicó una petición.", autor: AUTOR_CLIENTE, creadoEn: addDays(today, -2) } });
   }
 
   for (let i = 0; i < 16; i += 1) {
@@ -458,7 +526,9 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
         tipo,
         fecha: addDays(today, -between(1, 175)),
         asunto: pick(ASUNTOS_PQR[tipo]),
-        solicitudId: random() < 0.5 ? solicitud.id : null,
+        estado: "CERRADA",
+        respuesta: "Caso atendido y cerrado con el cliente.",
+        solicitudId: null,
       },
     });
   }

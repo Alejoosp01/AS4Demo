@@ -104,3 +104,140 @@
   font-weight: 700;
   color: var(--color-navy);
 }
+
+/* ---------- Etapas 5 a 7: suscripción, pago, póliza, casos y renovación ---------- */
+
+.tarjeta-paso {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-blue-100);
+  border-left: 5px solid var(--color-blue);
+  border-radius: 14px;
+  box-shadow: var(--sombra);
+  animation: aparecer 0.35s ease-out both;
+}
+
+.tarjeta-paso > :last-child {
+  margin-bottom: 0;
+}
+
+.tarjeta-paso--ok {
+  border-left-color: var(--color-green);
+  background: linear-gradient(180deg, var(--color-green-50), var(--color-white) 70%);
+}
+
+.tarjeta-paso--alerta {
+  border-left-color: var(--color-amber);
+  background: linear-gradient(180deg, var(--color-amber-50), var(--color-white) 70%);
+}
+
+.valor-destacado {
+  font-family: var(--font-titulos);
+  font-size: 24px;
+  color: var(--color-navy);
+}
+
+.poliza {
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--color-blue-100);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+
+.poliza__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  color: var(--color-white);
+  background: linear-gradient(135deg, var(--color-navy), var(--color-blue-dark));
+}
+
+.poliza__cabecera p {
+  margin: 0;
+}
+
+.poliza__etiqueta {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-blue-100);
+}
+
+.poliza__numero {
+  font-family: var(--font-titulos);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.poliza .resumen {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.opcion--bloque {
+  display: flex;
+  margin-top: var(--space-2);
+}
+
+.obligatorio {
+  font-style: normal;
+  font-size: var(--font-size-small);
+  color: var(--color-red-dark);
+}
+
+.etiqueta-suave {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-navy);
+  background: var(--color-blue-50);
+  border-radius: 10px;
+}
+
+.fila-elegida td {
+  background: var(--color-green-50) !important;
+}
+
+.tarjeta-paso .tabla tbody tr {
+  cursor: pointer;
+}
+
+.seccion-casos {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 2px solid var(--color-blue-50);
+}
+
+.casos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.casos li {
+  padding: var(--space-3) 0;
+  border-bottom: var(--border);
+}
+
+.casos__estado {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--font-size-small);
+  color: var(--color-blue-dark);
+}
+
+.barra-volver {
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--font-size-small);
+  color: var(--color-navy);
+  background: var(--color-blue-50);
+  border-bottom: 1px solid var(--color-blue-100);
+}

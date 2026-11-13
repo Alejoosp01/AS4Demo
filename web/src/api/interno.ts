@@ -1,5 +1,7 @@
 import { pedir } from "./http";
-import type { CodigoPaso, EstadoSolicitud, Ramo, SiguientePaso, SolicitudInterna } from "./tipos";
+import type { CodigoPaso, EstadoSolicitud, OfertaRenovacion, Ramo, SiguientePaso, SolicitudInterna } from "./tipos";
+
+export type { OfertaRenovacion };
 
 export interface Usuario {
   id: number;
@@ -17,11 +19,12 @@ export interface FilaBandeja {
   ramo: Ramo;
   estado: EstadoSolicitud;
   asesor: string | null;
-  siguientePaso: Pick<SiguientePaso, "codigo" | "responsable" | "titulo">;
+  siguientePaso: Pick<SiguientePaso, "codigo" | "responsable" | "titulo" | "tarea">;
 }
 
 export interface TareaResumen {
   codigo: CodigoPaso;
+  tarea: string;
   titulo: string;
   porque: string;
   accion: string;
@@ -36,16 +39,6 @@ export interface Resumen {
   esperandoCliente: number;
 }
 
-export interface OfertaRenovacion {
-  aseguradoraNombre: string;
-  primaAnual: number;
-  deducible: string;
-  puntajeCobertura: number;
-  amparosIncluidos: number;
-  amparosTotales: number;
-  esActual: boolean;
-}
-
 export interface Bandeja {
   total: number;
   pagina: number;
@@ -57,6 +50,7 @@ export interface Renovacion {
   id: number;
   numero: string;
   solicitudId: number;
+  token: string;
   tomador: string;
   telefono: string;
   correo: string;
@@ -66,7 +60,7 @@ export interface Renovacion {
   fechaVencimiento: string;
   diasRestantes: number;
   asesor: string | null;
-  propuesta: { enviadaEn: string; ofertas: OfertaRenovacion[] } | null;
+  propuesta: { enviadaEn: string; sinRespuesta: boolean; ofertas: OfertaRenovacion[] } | null;
 }
 
 export interface Tablero {
@@ -94,10 +88,12 @@ export const obtenerResumen = () => pedir<Resumen>("GET", "/asesor/resumen");
 export const obtenerBandeja = (consulta: string) => pedir<Bandeja>("GET", `/asesor/solicitudes?${consulta}`);
 export const obtenerSolicitudInterna = (id: string) => pedir<SolicitudInterna>("GET", `/asesor/solicitudes/${id}`);
 export const guardarAsesoria = (id: number, datos: unknown) => pedir<SolicitudInterna>("POST", `/asesor/solicitudes/${id}/asesoria`, datos);
-export const emitirPoliza = (id: number, datos: unknown) => pedir<SolicitudInterna>("POST", `/asesor/solicitudes/${id}/emision`, datos);
+export const registrarContacto = (id: number, nota: string) => pedir<SolicitudInterna>("POST", `/asesor/solicitudes/${id}/contacto`, { nota });
+export const registrarRenovacion = (solicitudId: number, datos: unknown) => pedir<SolicitudInterna>("POST", `/asesor/solicitudes/${solicitudId}/renovacion`, datos);
+export const radicarSiniestro = (id: number) => pedir<SolicitudInterna>("POST", `/asesor/siniestros/${id}/radicacion`);
+export const cerrarSiniestro = (id: number, datos: unknown) => pedir<SolicitudInterna>("POST", `/asesor/siniestros/${id}/cierre`, datos);
+export const responderPqr = (id: number, respuesta: string) => pedir<SolicitudInterna>("POST", `/asesor/pqr/${id}/respuesta`, { respuesta });
 export const obtenerRenovaciones = () => pedir<Renovacion[]>("GET", "/asesor/renovaciones");
-export const marcarRenovacion = (polizaId: number, estado: "RENOVADA" | "NO_RENOVADA") =>
-  pedir<void>("POST", `/asesor/polizas/${polizaId}/renovacion`, { estado });
 
 export const obtenerTablero = (meses: string, ramo: string) =>
   pedir<Tablero>("GET", `/gerencia/tablero?meses=${encodeURIComponent(meses)}&ramo=${encodeURIComponent(ramo)}`);

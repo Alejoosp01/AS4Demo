@@ -63,7 +63,7 @@ export function PasoComparativo({ solicitud, catalogos, onActualizada, onModific
 
   return (
     <>
-      <Pasos actual={3} />
+      <Pasos actual={4} />
       <h1 id="titulo-comparativo">Comparativo de ofertas</h1>
       <p className="cliente__intro">
         Seguro de {nombreDe(catalogos.ramos, solicitud.ramo).toLowerCase()} para {solicitud.tomador.nombre}. Las primas son anuales.

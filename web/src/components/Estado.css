@@ -21,3 +21,4 @@
 .estado--no_interesada { --color-estado: var(--color-gray-400); }
 .estado--emitida { --color-estado: var(--color-navy); }
 .estado--cerrada { --color-estado: var(--color-gray-400); }
+.estado--en_cumplimiento { --color-estado: var(--color-red); }

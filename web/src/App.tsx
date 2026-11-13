@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { TopBar } from "./components/TopBar";
 import { Bandeja } from "./pages/asesor/Bandeja";
 import { DetalleSolicitud } from "./pages/asesor/DetalleSolicitud";
@@ -10,13 +10,20 @@ import { Solicitud } from "./pages/cliente/Solicitud";
 import { Imparcialidad } from "./pages/gerencia/Imparcialidad";
 import { Tablero } from "./pages/gerencia/Tablero";
 import { Ingreso } from "./pages/Ingreso";
-import { ProveedorSesion, RutaProtegida } from "./sesion/Sesion";
+import { ProveedorSesion, RutaProtegida, inicioDe, useSesion } from "./sesion/Sesion";
 import "./pages/cliente/Cliente.css";
 
 function LayoutCliente({ children }: { children: ReactNode }) {
+  const { usuario } = useSesion();
   return (
     <>
       <TopBar />
+      {/* Un asesor que diligencia con el cliente vuelve a su trabajo sin abrir otra pestaña. */}
+      {usuario ? (
+        <p className="barra-volver no-imprimir">
+          Está viendo la página del cliente como {usuario.nombre}. <Link to={inicioDe(usuario)}>Volver a mi trabajo</Link>
+        </p>
+      ) : null}
       <main className="cliente pagina">{children}</main>
     </>
   );

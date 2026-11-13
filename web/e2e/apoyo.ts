@@ -26,7 +26,7 @@ const SARLAFT = {
 export async function solicitudCotizada(request: APIRequestContext, nombre: string) {
   const documento = String(Date.now()).slice(-10) + String(Math.floor(Math.random() * 10));
   const creada = await request.post("/api/solicitudes", {
-    data: { nombre, tipoDocumento: "CC", numeroDocumento: documento, correo: "prueba@correo.example", telefono: "3001112233", ramo: "AUTOS", autorizaDatos: true },
+    data: { nombre, tipoDocumento: "CC", numeroDocumento: documento, correo: "prueba@correo.example", telefono: "3001112233", ciudad: "medellin", ramo: "AUTOS", autorizaDatos: true },
   });
   expect(creada.ok()).toBeTruthy();
   const { token } = await creada.json();
@@ -36,4 +36,15 @@ export async function solicitudCotizada(request: APIRequestContext, nombre: stri
   expect(cotizada.ok()).toBeTruthy();
   const vista = await cotizada.json();
   return { token, id: vista.id as number, documento, ofertas: vista.ofertas as { id: number; aseguradoraNombre: string }[] };
+}
+
+/** Lleva una solicitud cotizada hasta la póliza emitida: elección, firma con código y pago. */
+export async function polizaEmitida(request: APIRequestContext, nombre: string) {
+  const s = await solicitudCotizada(request, nombre);
+  const eleccion = await request.post(`/api/solicitudes/${s.token}/eleccion`, { data: { ofertaId: s.ofertas[0].id } });
+  const { aceptacion } = await eleccion.json();
+  await request.post(`/api/solicitudes/${s.token}/confirmacion`, { data: { codigo: aceptacion.codigo } });
+  const pago = await request.post(`/api/solicitudes/${s.token}/pago`, { data: { formaPago: "CONTADO" } });
+  expect(pago.ok()).toBeTruthy();
+  return { ...s, poliza: (await pago.json()).poliza as { numero: string } };
 }

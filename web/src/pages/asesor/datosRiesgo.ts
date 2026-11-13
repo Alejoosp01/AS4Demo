@@ -32,6 +32,7 @@ export function datosSarlaft(s: Datos | null): Filas {
     ["Egresos mensuales", dinero(s.egresosMensuales)],
     ["Origen de los fondos", String(s.origenFondos)],
     ["Persona expuesta políticamente", siNo(s.personaExpuestaPoliticamente)],
+    ...(s.cargoPep ? [["Cargo público", String(s.cargoPep)] as [string, string]] : []),
     ["Declaración de origen lícito", s.declaraOrigenLicito ? "Firmada" : "Sin firmar"],
   ];
 }

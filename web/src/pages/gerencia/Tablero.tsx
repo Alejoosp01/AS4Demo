@@ -37,7 +37,7 @@ export function Tablero() {
   }, [meses, ramo]);
 
   const nombreRamo = (r: string) => (catalogos ? nombreDe(catalogos.ramos, r) : r);
-  const nombreMotivo = (m: string) => (catalogos ? nombreDe(catalogos.motivosNoInteres, m) : m);
+  const nombreMotivo = (m: string) => (m === "DATOS_INCOMPLETOS" ? "Datos incompletos (cierre automático)" : catalogos ? nombreDe(catalogos.motivosNoInteres, m) : m);
 
   return (
     <>

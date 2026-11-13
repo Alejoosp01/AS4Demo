@@ -11,19 +11,22 @@ import { useConteo } from "../../hooks/useConteo";
 import { useSesion } from "../../sesion/Sesion";
 import "./Asesor.css";
 
+// Las siete etapas del proceso TO-BE y quién hace cada una.
 const PROCESO = [
-  { quien: "Cliente", que: "Llena la solicitud y sus datos una sola vez, con el SARLAFT único." },
-  { quien: "Plataforma", que: "Valida, cotiza con todas las aseguradoras y ordena por cobertura y precio." },
-  { quien: "Usted", que: "Asesora: recomienda una oferta y deja escrito el criterio." },
-  { quien: "Cliente", que: "Acepta una oferta con su código o indica por qué no continúa." },
-  { quien: "Usted", que: "Emite la póliza y acompaña al cliente en siniestros y renovaciones." },
+  { quien: "Cliente", que: "Solicitud con autorización de datos; la plataforma la clasifica (T01–T02)." },
+  { quien: "Cliente", que: "SARLAFT único y datos del ramo, una sola vez. Usted solo llama si se detiene 48 horas (T03–T07)." },
+  { quien: "Plataforma", que: "Cotiza con las aliadas y ordena por cobertura y precio (T08)." },
+  { quien: "Usted", que: "Asesora y deja escrito el criterio; el cliente acepta y firma en línea (T09–T10)." },
+  { quien: "Aseguradora", que: "Suscribe y emite; el cliente paga y la plataforma entrega la póliza (T11–T14)." },
+  { quien: "Usted", que: "Radica y acompaña los siniestros y las PQR hasta el cierre (T15–T16)." },
+  { quien: "Plataforma", que: "Recotiza la renovación 30 días antes; el cliente decide en su enlace (T15–T17)." },
 ];
 
 const ICONOS: Record<string, NombreIcono> = {
-  EMITIR_POLIZA: "poliza",
+  ATENDER_CASO: "escudo",
   REGISTRAR_ASESORIA: "asesoria",
   CONTACTAR_CLIENTE: "telefono",
-  GESTIONAR_RENOVACION: "renovar",
+  LLAMAR_RENOVACION: "renovar",
 };
 
 /** Indicador de una tarea: lleva al bloque correspondiente de la lista. */
@@ -48,17 +51,17 @@ function saludo(): string {
 }
 
 function destino(tarea: TareaResumen, solicitudId: number): string {
-  return tarea.codigo === "GESTIONAR_RENOVACION" ? "/asesor/renovaciones" : `/asesor/solicitudes/${solicitudId}#que-sigue`;
+  return tarea.codigo === "LLAMAR_RENOVACION" ? "/asesor/renovaciones" : `/asesor/solicitudes/${solicitudId}#que-sigue`;
 }
 
 function Tarea({ tarea, orden, catalogos }: { tarea: TareaResumen; orden: number; catalogos: Catalogos | null }) {
-  const verTodas = tarea.codigo === "GESTIONAR_RENOVACION" ? "/asesor/renovaciones" : `/asesor/solicitudes?${tarea.filtro}`;
+  const verTodas = tarea.codigo === "LLAMAR_RENOVACION" ? "/asesor/renovaciones" : `/asesor/solicitudes?${tarea.filtro}`;
   return (
     <section className="tarea en-cascada" id={`bloque-${tarea.codigo}`} style={{ "--i": orden + 3 } as React.CSSProperties} aria-labelledby={`tarea-${tarea.codigo}`}>
       <header className="tarea__cabecera">
         <span className="tarea__orden" aria-hidden="true">{orden}</span>
         <div>
-          <h2 id={`tarea-${tarea.codigo}`}>{tarea.titulo} <span className="tarea__total">{tarea.total}</span></h2>
+          <h2 id={`tarea-${tarea.codigo}`}>{tarea.titulo} <span className="tarea__total">{tarea.total}</span> <span className="tarea__codigo" title="Tarea de la matriz TO-BE">{tarea.tarea}</span></h2>
           <p className="texto-secundario">{tarea.porque}</p>
         </div>
       </header>
@@ -145,7 +148,7 @@ export function Inicio() {
           ))}
         </ol>
         <p className="texto-secundario">
-          La plataforma se encarga de comparar; su tiempo es para asesorar y acompañar al cliente.
+          De las 27 tareas del proceso, solo tres quedan a su cargo: asesorar, acompañar siniestros y destrabar al cliente cuando lo necesita.
         </p>
       </aside>
     </div>

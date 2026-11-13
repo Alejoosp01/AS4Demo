@@ -29,6 +29,8 @@ enum EstadoSolicitud {
   EMITIDA
   // Cierre automático: el cliente no completó sus datos en cinco días hábiles (T07).
   CERRADA
+  // Coincidencia en listas restrictivas (T03): la solicitud pasa a cumplimiento y no continúa.
+  EN_CUMPLIMIENTO
 }
 
 enum MotivoNoInteres {
@@ -81,6 +83,11 @@ model Solicitud {
   numeroDocumento  String
   correo           String
   telefono         String
+  ciudad           String?
+  // Clasificación automática de T02.
+  tipoCliente      String           @default("NATURAL")
+  tramite          String           @default("NUEVA")
+  autorizaDatosSensibles Boolean    @default(false)
   autorizaDatos    Boolean
   autorizaDatosEn  DateTime
   // Versión del texto de autorización que aceptó el titular (Ley 1581 de 2012).
@@ -137,6 +144,11 @@ model Aceptacion {
   codigo       String
   generadaEn   DateTime  @default(now())
   confirmadaEn DateTime?
+  // Resultado de la suscripción de la aseguradora (T11) y aceptación de sus condiciones (T12).
+  suscripcionResultado   String?
+  suscripcionDetalle     String?
+  suscritaEn             DateTime?
+  condicionesAceptadasEn DateTime?
 }
 
 model Asesoria {
@@ -161,6 +173,8 @@ model Poliza {
   fechaEmision     DateTime
   fechaVencimiento DateTime
   estadoRenovacion EstadoRenovacion @default(PENDIENTE)
+  formaPago        String?
+  pagadaEn         DateTime?
   siniestros       Siniestro[]
   propuestaRenovacion PropuestaRenovacion?
 
@@ -178,6 +192,13 @@ model PropuestaRenovacion {
   aseguradoraActual String
   // Comparativo de la recotización, ya ordenado por cobertura y prima. No guarda comisiones.
   ofertas           Json
+  // Decisión del cliente (T16): renovar con una aseguradora o no renovar con motivo.
+  decision          String?
+  aseguradoraElegida String?
+  primaElegida      Int?
+  motivoNoRenovacion String?
+  decididaEn        DateTime?
+  decididaPor       String?
 }
 
 // Bitácora de la solicitud: deja rastro de cada paso del proceso y de cada aviso automático.
@@ -199,6 +220,16 @@ model Siniestro {
   poliza       Poliza   @relation(fields: [polizaId], references: [id], onDelete: Cascade)
   fechaReporte DateTime
   descripcion  String
+  fechaEvento  DateTime?
+  lugar        String?
+  documentos   Json?
+  avisoTardio  Boolean   @default(false)
+  // REPORTADO (cliente) → RADICADO (asesor ante la aseguradora) → CERRADO (pagado u objetado).
+  estado       String    @default("REPORTADO")
+  radicadoEn   DateTime?
+  cerradoEn    DateTime?
+  resultado    String?
+  valorPagado  Int?
 
   @@index([fechaReporte])
 }
@@ -209,6 +240,10 @@ model Pqr {
   tipo        TipoPqr
   fecha       DateTime
   asunto      String
+  descripcion String?
+  estado      String     @default("ABIERTA")
+  respuesta   String?
+  cerradaEn   DateTime?
   solicitudId Int?
   solicitud   Solicitud? @relation(fields: [solicitudId], references: [id], onDelete: SetNull)
 

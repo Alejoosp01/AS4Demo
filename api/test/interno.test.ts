@@ -5,7 +5,7 @@ import { cotizar, crearAdaptadoresSimulados } from "../src/cotizacion/motor";
 import { type SolicitudCompleta, vistaSolicitud } from "../src/servicios/solicitudes";
 import { UMBRAL_CONCENTRACION, imparcialidad, periodo } from "../src/servicios/tablero";
 import { erroresPorCampo } from "../src/validacion/errores";
-import { emisionSchema, ingresoSchema } from "../src/validacion/interno";
+import { ingresoSchema } from "../src/validacion/interno";
 import { ANIO, autos } from "./fixtures";
 
 function cookieDeSesion(usuarioId: number): string {
@@ -32,19 +32,10 @@ describe("sesión con cookie firmada", () => {
   });
 });
 
-describe("ingreso y emisión", () => {
+describe("ingreso", () => {
   it("pide correo y contraseña", () => {
     const r = ingresoSchema.safeParse({});
     expect(r.success ? {} : erroresPorCampo(r.error)).toEqual({ correo: "Escriba su correo", clave: "Escriba su contraseña" });
-  });
-
-  it("valida el número de póliza y la fecha de vencimiento", () => {
-    const pasado = emisionSchema.safeParse({ numero: "aut-2026-1", fechaVencimiento: "2020-01-01" });
-    expect(pasado.success ? {} : erroresPorCampo(pasado.error).fechaVencimiento).toBe("La fecha de vencimiento debe ser posterior a hoy");
-    const malo = emisionSchema.safeParse({ numero: "AUT 2026", fechaVencimiento: `${new Date().getFullYear() + 1}-05-10` });
-    expect(malo.success ? {} : erroresPorCampo(malo.error).numero).toMatch(/letras, números y guiones/);
-    const bueno = emisionSchema.parse({ numero: "aut-2026-000123", fechaVencimiento: `${new Date().getFullYear() + 1}-05-10` });
-    expect(bueno.numero).toBe("AUT-2026-000123");
   });
 });
 
@@ -80,7 +71,7 @@ describe("vista de la solicitud", () => {
     return {
       id: 1, token: "t", ramo: "AUTOS", estado: "COTIZADA", nombre: "N", tipoDocumento: "CC", numeroDocumento: "1", correo: "c", telefono: "3",
       autorizaDatos: true, autorizaDatosEn: new Date(), datosRamo: autos.datos, sarlaft: null, motivoNoInteres: null, detalleNoInteres: null,
-      asesorId: null, creadaEn: new Date(), actualizadaEn: new Date(), aceptacion: null, poliza: null, asesoria: null, asesor: null,
+      asesorId: null, creadaEn: new Date(), actualizadaEn: new Date(), aceptacion: null, poliza: null, asesoria: null, asesor: null, pqrs: [], eventos: [], borrador: null,
       ofertas: ofertas.reverse().map((o, i) => ({
         id: i + 1, solicitudId: 1, aseguradoraId: i + 1, primaAnual: o.primaAnual, deducible: o.deducible, coberturas: o.coberturas,
         puntajeCobertura: o.puntajeCobertura, elegida: false,

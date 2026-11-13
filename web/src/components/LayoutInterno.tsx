@@ -42,8 +42,8 @@ export function LayoutInterno({ children }: { children: ReactNode }) {
           </ul>
           {usuario.rol === "ASESOR" ? (
             <div className="menu__accion">
-              <a className="boton boton--secundario" href="/solicitud" target="_blank" rel="noreferrer"><Icono nombre="mas" tamano={16} />Nueva solicitud</a>
-              <p>Abre el formulario del cliente en otra pestaña.</p>
+              <NavLink className="boton boton--secundario" to="/solicitud"><Icono nombre="mas" tamano={16} />Nueva solicitud</NavLink>
+              <p>Abre el formulario del cliente para diligenciarlo con él.</p>
             </div>
           ) : null}
         </nav>

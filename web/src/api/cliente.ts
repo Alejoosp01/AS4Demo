@@ -13,6 +13,7 @@ export function obtenerCatalogos(): Promise<Catalogos> {
 
 export const crearSolicitud = (datos: unknown) => pedir<{ token: string }>("POST", "/solicitudes", datos);
 export const obtenerSolicitud = (token: string) => pedir<SolicitudVista>("GET", `/solicitudes/${token}`);
+export const guardarSarlaft = (token: string, datos: unknown) => pedir<SolicitudVista>("PUT", `/solicitudes/${token}/sarlaft`, datos);
 export const guardarBorrador = (token: string, datos: unknown) => pedir<SolicitudVista>("PUT", `/solicitudes/${token}/borrador`, datos);
 export const guardarFormulario = (token: string, datos: unknown) => pedir<SolicitudVista>("PUT", `/solicitudes/${token}/formulario`, datos);
 export const elegirOferta = (token: string, ofertaId: number) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/eleccion`, { ofertaId });
@@ -23,3 +24,8 @@ export const registrarNoInteres = (token: string, datos: unknown) => pedir<Solic
 export function nombreDe(opciones: { codigo: string; nombre: string }[], codigo: unknown): string {
   return opciones.find((o) => o.codigo === codigo)?.nombre ?? String(codigo ?? "");
 }
+export const responderCondiciones = (token: string, acepta: boolean) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/condiciones`, { acepta });
+export const pagarPrima = (token: string, formaPago: string) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/pago`, { formaPago });
+export const reportarSiniestro = (token: string, datos: unknown) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/siniestros`, datos);
+export const radicarPqr = (token: string, datos: unknown) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/pqr`, datos);
+export const decidirRenovacion = (token: string, datos: unknown) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/renovacion`, datos);

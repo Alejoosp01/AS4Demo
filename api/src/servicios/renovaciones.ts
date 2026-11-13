@@ -1,9 +1,13 @@
-import { EstadoRenovacion, Prisma } from "@prisma/client";
+import { EstadoRenovacion, EstadoSolicitud, Prisma } from "@prisma/client";
+import { MOTIVOS_NO_RENOVACION } from "../catalogos";
+import { ErrorDeNegocio, ErrorValidacion } from "../errores";
+import { erroresPorCampo } from "../validacion/errores";
+import { decisionRenovacionSchema } from "../validacion/solicitud";
 import { prisma } from "../db";
 import { cotizar, crearAdaptadoresSimulados } from "../cotizacion/motor";
 import type { Oferta } from "../cotizacion/tipos";
 import { validarDatosRamo } from "../validacion/ramos";
-import { registrarEvento } from "./bitacora";
+import { AUTOR_CLIENTE, registrarEvento } from "./bitacora";
 import { DIAS_RENOVACION } from "./siguientePaso";
 
 const DIA_MS = 24 * 60 * 60 * 1000;
@@ -59,20 +63,68 @@ export async function generarPropuestasRenovacion(ahora = new Date()): Promise<n
     if (!riesgo.ok) continue;
     const ofertas = await cotizar(riesgo.valor, adaptadores);
     const actual = poliza.oferta.aseguradora.nombre;
+    // La propuesta sale 30 días antes del vencimiento. Si el servicio arranca con pólizas que ya pasaron
+    // esa fecha (como las de los datos de ejemplo), se registra con la fecha en que debió salir.
+    const enviadaEn = new Date(Math.min(ahora.getTime(), poliza.fechaVencimiento.getTime() - DIAS_RENOVACION * DIA_MS));
     await prisma.$transaction(async (tx) => {
       await tx.propuestaRenovacion.create({
         data: {
           polizaId: poliza.id,
-          enviadaEn: ahora,
+          enviadaEn,
           primaActual: poliza.oferta.primaAnual,
           aseguradoraActual: actual,
           ofertas: ofertasDeRenovacion(ofertas, actual) as unknown as Prisma.InputJsonValue,
         },
       });
       await registrarEvento(tx, poliza.solicitudId, "PROPUESTA_RENOVACION",
-        `Recotización automática de la póliza ${poliza.numero} con ${ofertas.length} ofertas. Propuesta enviada a ${poliza.solicitud.correo} (envío simulado).`, undefined, ahora);
+        `Recotización automática de la póliza ${poliza.numero} con ${ofertas.length} ofertas. Propuesta enviada a ${poliza.solicitud.correo} (envío simulado).`, undefined, enviadaEn);
     });
     generadas += 1;
   }
   return generadas;
+}
+
+/**
+ * T16: decisión de renovación. La toma el cliente desde su enlace; si no responde, el asesor lo llama
+ * y la registra por él. Renovar extiende la vigencia un año; no renovar exige el motivo.
+ */
+export async function decidirRenovacion(solicitudId: number, entrada: unknown, autor = AUTOR_CLIENTE) {
+  const solicitud = await prisma.solicitud.findUnique({
+    where: { id: solicitudId },
+    include: { poliza: { include: { propuestaRenovacion: true } } },
+  });
+  const poliza = solicitud?.poliza;
+  const propuesta = poliza?.propuestaRenovacion;
+  if (!solicitud || solicitud.estado !== EstadoSolicitud.EMITIDA || !poliza || !propuesta) {
+    throw new ErrorDeNegocio(409, "Esta póliza no tiene una propuesta de renovación.");
+  }
+  if (propuesta.decision) throw new ErrorDeNegocio(409, "La renovación de esta póliza ya fue decidida.");
+  const resultado = decisionRenovacionSchema.safeParse(entrada);
+  if (!resultado.success) throw new ErrorValidacion(erroresPorCampo(resultado.error));
+
+  const ahora = new Date();
+  const porTelefono = autor !== AUTOR_CLIENTE ? " (decisión del cliente registrada por el asesor)" : "";
+  if (resultado.data.decision === "RENOVAR") {
+    const oferta = (propuesta.ofertas as unknown as OfertaRenovacion[]).find((o) => o.aseguradoraNombre === resultado.data.aseguradora);
+    if (!oferta) throw new ErrorValidacion({ aseguradora: "Seleccione una de las ofertas de la propuesta" });
+    const siguiente = oferta.esActual ? "pasa al pago" : "pasa a firma con la nueva aseguradora";
+    await prisma.$transaction([
+      prisma.propuestaRenovacion.update({
+        where: { id: propuesta.id },
+        data: { decision: "RENOVADA", aseguradoraElegida: oferta.aseguradoraNombre, primaElegida: oferta.primaAnual, decididaEn: ahora, decididaPor: autor },
+      }),
+      prisma.poliza.update({
+        where: { id: poliza.id },
+        data: { estadoRenovacion: EstadoRenovacion.RENOVADA, fechaVencimiento: new Date(poliza.fechaVencimiento.getTime() + 365 * DIA_MS) },
+      }),
+      registrarEvento(prisma, solicitud.id, "RENOVACION", `Póliza ${poliza.numero} renovada con ${oferta.aseguradoraNombre}: ${siguiente}${porTelefono}.`, autor, ahora),
+    ]);
+  } else {
+    const motivo = resultado.data.motivo!;
+    await prisma.$transaction([
+      prisma.propuestaRenovacion.update({ where: { id: propuesta.id }, data: { decision: "NO_RENOVADA", motivoNoRenovacion: motivo, decididaEn: ahora, decididaPor: autor } }),
+      prisma.poliza.update({ where: { id: poliza.id }, data: { estadoRenovacion: EstadoRenovacion.NO_RENOVADA } }),
+      registrarEvento(prisma, solicitud.id, "RENOVACION", `El cliente no renueva la póliza ${poliza.numero}. Motivo: ${MOTIVOS_NO_RENOVACION[motivo].toLowerCase()}${porTelefono}.`, autor, ahora),
+    ]);
+  }
 }

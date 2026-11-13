@@ -16,7 +16,18 @@ export type TipoEvento =
   | "ALERTA_ASESOR"
   | "CIERRE"
   | "PROPUESTA_RENOVACION"
-  | "RENOVACION";
+  | "RENOVACION"
+  | "CLASIFICACION"
+  | "SARLAFT"
+  | "CUMPLIMIENTO"
+  | "RADICACION"
+  | "SUSCRIPCION"
+  | "CONDICIONES"
+  | "PAGO"
+  | "ENTREGA"
+  | "CONTACTO"
+  | "SINIESTRO"
+  | "PQR";
 
 type Cliente = Pick<Prisma.TransactionClient, "evento">;
 
