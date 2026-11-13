@@ -1,6 +1,6 @@
 export type Ramo = "AUTOS" | "SALUD" | "VIDA" | "HOGAR" | "PYMES";
 
-export type EstadoSolicitud = "NUEVA" | "COTIZADA" | "ASESORADA" | "ACEPTADA" | "NO_INTERESADA" | "EMITIDA";
+export type EstadoSolicitud = "NUEVA" | "COTIZADA" | "ASESORADA" | "ACEPTADA" | "NO_INTERESADA" | "EMITIDA" | "CERRADA";
 
 export interface Opcion {
   codigo: string;
@@ -43,6 +43,9 @@ export interface SolicitudVista {
   creadaEn: string;
   tomador: { nombre: string; tipoDocumento: string; numeroDocumento: string; correo: string; telefono: string };
   autorizaDatosEn: string;
+  autorizaDatosVersion: string;
+  borrador: { datosRamo: Record<string, unknown>; sarlaft: Record<string, unknown> } | null;
+  pendientes: { campo: string; etiqueta: string }[];
   datosRamo: Record<string, unknown> | null;
   sarlaft: Record<string, unknown> | null;
   ofertas: OfertaVista[];
@@ -51,4 +54,37 @@ export interface SolicitudVista {
   asesoria: { asesor: string; ofertaRecomendadaId: number | null; criterio: string; creadaEn: string } | null;
   poliza: { numero: string; fechaEmision: string; fechaVencimiento: string } | null;
   asesor: string | null;
+}
+
+export type CodigoPaso =
+  | "ESPERAR_DATOS"
+  | "CONTACTAR_CLIENTE"
+  | "REGISTRAR_ASESORIA"
+  | "ESPERAR_DECISION"
+  | "ESPERAR_CODIGO"
+  | "EMITIR_POLIZA"
+  | "GESTIONAR_RENOVACION"
+  | "NINGUNO";
+
+export interface SiguientePaso {
+  codigo: CodigoPaso;
+  responsable: "ASESOR" | "CLIENTE" | "NADIE";
+  titulo: string;
+  descripcion: string;
+}
+
+export interface EventoBitacora {
+  tipo: string;
+  detalle: string;
+  autor: string;
+  creadoEn: string;
+}
+
+/** Lo que ve el asesor: la solicitud más el siguiente paso, el seguimiento automático y la bitácora. */
+export interface SolicitudInterna extends SolicitudVista {
+  siguientePaso: SiguientePaso;
+  seguimiento: { recordatorioEn: string | null; alertaAsesorEn: string | null; cerradaEn: string | null };
+  polizaId: number | null;
+  estadoRenovacion: "PENDIENTE" | "RENOVADA" | "NO_RENOVADA" | null;
+  eventos: EventoBitacora[];
 }

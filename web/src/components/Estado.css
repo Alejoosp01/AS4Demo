@@ -14,9 +14,10 @@
   flex: none;
 }
 
-.estado--nueva { --color-estado: var(--color-blue); }
-.estado--cotizada { --color-estado: var(--color-navy); }
+.estado--nueva { --color-estado: var(--color-blue-100); }
+.estado--cotizada { --color-estado: var(--color-blue); }
 .estado--asesorada { --color-estado: var(--color-amber); }
 .estado--aceptada { --color-estado: var(--color-green); }
 .estado--no_interesada { --color-estado: var(--color-gray-400); }
-.estado--emitida { --color-estado: #1d4d33; }
+.estado--emitida { --color-estado: var(--color-navy); }
+.estado--cerrada { --color-estado: var(--color-gray-400); }

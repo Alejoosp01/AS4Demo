@@ -1,5 +1,5 @@
 import { pedir } from "./http";
-import type { EstadoSolicitud, Ramo, SolicitudVista } from "./tipos";
+import type { CodigoPaso, EstadoSolicitud, Ramo, SiguientePaso, SolicitudInterna } from "./tipos";
 
 export interface Usuario {
   id: number;
@@ -17,6 +17,33 @@ export interface FilaBandeja {
   ramo: Ramo;
   estado: EstadoSolicitud;
   asesor: string | null;
+  siguientePaso: Pick<SiguientePaso, "codigo" | "responsable" | "titulo">;
+}
+
+export interface TareaResumen {
+  codigo: CodigoPaso;
+  titulo: string;
+  porque: string;
+  accion: string;
+  total: number;
+  filtro: string;
+  elementos: { solicitudId: number; nombre: string; ramo: Ramo; detalle: string; urgente: boolean }[];
+}
+
+export interface Resumen {
+  tareas: TareaResumen[];
+  totalPendientes: number;
+  esperandoCliente: number;
+}
+
+export interface OfertaRenovacion {
+  aseguradoraNombre: string;
+  primaAnual: number;
+  deducible: string;
+  puntajeCobertura: number;
+  amparosIncluidos: number;
+  amparosTotales: number;
+  esActual: boolean;
 }
 
 export interface Bandeja {
@@ -32,12 +59,14 @@ export interface Renovacion {
   solicitudId: number;
   tomador: string;
   telefono: string;
+  correo: string;
   ramo: Ramo;
   aseguradora: string;
   primaAnual: number;
   fechaVencimiento: string;
   diasRestantes: number;
   asesor: string | null;
+  propuesta: { enviadaEn: string; ofertas: OfertaRenovacion[] } | null;
 }
 
 export interface Tablero {
@@ -61,10 +90,11 @@ export const ingresar = (correo: string, clave: string) => pedir<{ usuario: Usua
 export const sesionActual = () => pedir<{ usuario: Usuario }>("GET", "/auth/sesion");
 export const salir = () => pedir<void>("POST", "/auth/salida");
 
+export const obtenerResumen = () => pedir<Resumen>("GET", "/asesor/resumen");
 export const obtenerBandeja = (consulta: string) => pedir<Bandeja>("GET", `/asesor/solicitudes?${consulta}`);
-export const obtenerSolicitudInterna = (id: string) => pedir<SolicitudVista>("GET", `/asesor/solicitudes/${id}`);
-export const guardarAsesoria = (id: number, datos: unknown) => pedir<SolicitudVista>("POST", `/asesor/solicitudes/${id}/asesoria`, datos);
-export const emitirPoliza = (id: number, datos: unknown) => pedir<SolicitudVista>("POST", `/asesor/solicitudes/${id}/emision`, datos);
+export const obtenerSolicitudInterna = (id: string) => pedir<SolicitudInterna>("GET", `/asesor/solicitudes/${id}`);
+export const guardarAsesoria = (id: number, datos: unknown) => pedir<SolicitudInterna>("POST", `/asesor/solicitudes/${id}/asesoria`, datos);
+export const emitirPoliza = (id: number, datos: unknown) => pedir<SolicitudInterna>("POST", `/asesor/solicitudes/${id}/emision`, datos);
 export const obtenerRenovaciones = () => pedir<Renovacion[]>("GET", "/asesor/renovaciones");
 export const marcarRenovacion = (polizaId: number, estado: "RENOVADA" | "NO_RENOVADA") =>
   pedir<void>("POST", `/asesor/polizas/${polizaId}/renovacion`, { estado });

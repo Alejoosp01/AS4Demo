@@ -10,6 +10,8 @@ export default defineConfig({
     baseURL: process.env.BASE_URL ?? "http://localhost:8080",
     locale: "es-CO",
     trace: "retain-on-failure",
+    // Para usar un Chromium ya instalado en el equipo en lugar del que descarga Playwright.
+    launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
   },
   projects: [
     { name: "escritorio", use: { ...devices["Desktop Chrome"] } },

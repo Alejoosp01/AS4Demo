@@ -19,11 +19,11 @@
 
 .boton--principal {
   color: var(--color-white);
-  background: var(--color-red);
+  background: var(--color-navy);
 }
 
 .boton--principal:hover:not(:disabled) {
-  background: var(--color-red-dark);
+  background: var(--color-blue-dark);
 }
 
 .boton--secundario {
@@ -33,7 +33,17 @@
 }
 
 .boton--secundario:hover:not(:disabled) {
-  background: var(--color-gray-50);
+  background: var(--color-blue-50);
+}
+
+a.boton {
+  box-sizing: border-box;
+}
+
+.boton--compacto {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
 }
 
 .boton--enlace {

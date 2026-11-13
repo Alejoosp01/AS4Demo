@@ -31,6 +31,17 @@ export function Solicitud() {
   const actualizar = (s: SolicitudVista) => { setSolicitud(s); setModificando(false); };
   const { estado, aceptacion } = solicitud;
 
+  if (estado === "CERRADA") {
+    return (
+      <>
+        <h1>Solicitud cerrada</h1>
+        <p className="cliente__intro">
+          Cerramos esta solicitud porque pasaron cinco días hábiles sin recibir los datos del seguro. Si todavía le interesa,
+          puede <a href="/solicitud">crear una nueva solicitud</a> o comunicarse con la agencia.
+        </p>
+      </>
+    );
+  }
   if (estado === "NUEVA" || modificando) {
     return (
       <PasoFormulario solicitud={solicitud} catalogos={catalogos} onGuardada={actualizar}

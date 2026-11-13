@@ -1,24 +1,35 @@
 :root {
-  --color-navy: #1b2440;
-  --color-red: #c8322e;
-  --color-red-dark: #a52723;
+  /* Paleta del informe del proyecto: títulos azul oscuro, filete azul y tablas con encabezado azul claro. */
+  --color-navy: #1f3864;
+  --color-blue: #2e74b5;
+  --color-blue-dark: #1f4d78;
+  --color-blue-100: #bdd6ee;
+  --color-blue-50: #deeaf6;
+  --color-green-50: #e2efda;
+  --color-green: #2f6b3a;
+  --color-amber: #8a5a00;
+  --color-amber-50: #fff2cc;
+  /* Rojo del logotipo de AS4: solo para errores y urgencias. */
+  --color-red: #c0392b;
+  --color-red-dark: #a02b20;
+  --color-red-50: #fbe5e1;
   --color-white: #ffffff;
-  --color-gray-50: #f5f6f8;
-  --color-gray-100: #eceef2;
-  --color-gray-200: #d9dce3;
+  --color-gray-50: #f2f2f2;
+  --color-gray-100: #e7e9ee;
+  --color-gray-200: #d0d5dd;
   --color-gray-400: #8a90a0;
-  --color-gray-600: #555c6d;
-  --color-green: #2f7d4f;
-  --color-amber: #9a6200;
-  --color-blue: #2f5f9e;
+  --color-gray-600: #595959;
+  --color-text: #1c2434;
 
+  --font-titulos: "Times New Roman", Times, Georgia, serif;
   --font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
   --font-size-base: 15px;
   --font-size-small: 14px;
-  --font-size-title: 22px;
-  --font-size-subtitle: 18px;
+  --font-size-title: 26px;
+  --font-size-subtitle: 20px;
 
   --radius: 4px;
+  --sombra: 0 1px 2px rgba(31, 56, 100, 0.08);
   --border: 1px solid var(--color-gray-200);
 
   --space-1: 4px;
@@ -40,20 +51,31 @@ body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.45;
-  color: var(--color-navy);
+  color: var(--color-text);
   background: var(--color-white);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-titulos);
+  font-weight: 700;
+  color: var(--color-navy);
 }
 
 h1 {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-title);
-  font-weight: 600;
 }
 
 h2 {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-subtitle);
-  font-weight: 600;
+}
+
+h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 16px;
 }
 
 p {

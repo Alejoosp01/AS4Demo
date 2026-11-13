@@ -6,10 +6,24 @@ interface ComparativoProps {
   ofertas: OfertaVista[];
   seleccion?: { valor: number | null; onCambiar: (id: number) => void; error?: string };
   recomendadaId?: number | null;
+  /** Vista del asesor: marca los hechos objetivos del comparativo y pliega la explicación de los amparos. */
+  paraAsesor?: boolean;
 }
 
-export function Comparativo({ ofertas, seleccion, recomendadaId }: ComparativoProps) {
+export function Comparativo({ ofertas, seleccion, recomendadaId, paraAsesor }: ComparativoProps) {
   const amparos = ofertas[0]?.coberturas ?? [];
+  const menorPrima = Math.min(...ofertas.map((o) => o.primaAnual));
+  const mayorPuntaje = Math.max(...ofertas.map((o) => o.puntajeCobertura));
+  const explicacion = (
+    <dl className="amparos">
+      {amparos.map((c) => (
+        <div key={c.codigo}>
+          <dt>{c.nombre}</dt>
+          <dd>{c.explicacion}</dd>
+        </div>
+      ))}
+    </dl>
+  );
   return (
     <>
       <div role={seleccion ? "radiogroup" : undefined} aria-labelledby={seleccion ? "titulo-comparativo" : undefined}>
@@ -44,12 +58,15 @@ export function Comparativo({ ofertas, seleccion, recomendadaId }: ComparativoPr
                   ) : null}
                   <td className="comparativo__aseguradora" data-etiqueta="Aseguradora">
                     {seleccion ? <label htmlFor={`oferta-${o.id}`}>{o.aseguradoraNombre}</label> : o.aseguradoraNombre}
-                    {o.id === recomendadaId ? <span className="comparativo__nota">Recomendada por su asesor</span> : null}
+                    {paraAsesor && ofertas.length > 1 && o.puntajeCobertura === mayorPuntaje ? <span className="comparativo__insignia">Mayor cobertura</span> : null}
+                    {paraAsesor && ofertas.length > 1 && o.primaAnual === menorPrima ? <span className="comparativo__insignia comparativo__insignia--prima">Menor prima</span> : null}
+                    {o.id === recomendadaId ? <span className="comparativo__nota">{paraAsesor ? "Recomendada en la asesoría" : "Recomendada por su asesor"}</span> : null}
                     {!seleccion && o.elegida ? <span className="comparativo__nota">Elegida por el cliente</span> : null}
                   </td>
                   <td className="comparativo__numero" data-etiqueta="Prima anual">{pesos(o.primaAnual)}</td>
                   <td data-etiqueta="Deducible">{o.deducible}</td>
                   <td data-etiqueta="Amparos incluidos">
+                    {paraAsesor ? <div className="comparativo__conteo">{incluidos.length} de {o.coberturas.length} amparos</div> : null}
                     <ul className="comparativo__amparos">
                       {incluidos.map((c) => <li key={c.codigo}>{c.nombre}</li>)}
                     </ul>
@@ -65,19 +82,19 @@ export function Comparativo({ ofertas, seleccion, recomendadaId }: ComparativoPr
       </div>
       <p id="nota-orden" className="texto-secundario">
         Las ofertas están ordenadas por cobertura y, a igual cobertura, por menor prima.
+        {paraAsesor ? " La comisión de la agencia no interviene en el orden ni se muestra." : ""}
       </p>
       {seleccion?.error ? <p className="campo__error" role="alert">{seleccion.error}</p> : null}
-      {amparos.length > 0 ? (
+      {amparos.length > 0 && paraAsesor ? (
+        <details className="amparos-plegados">
+          <summary>Qué cubre cada amparo</summary>
+          {explicacion}
+        </details>
+      ) : null}
+      {amparos.length > 0 && !paraAsesor ? (
         <>
           <h2>Qué cubre cada amparo</h2>
-          <dl className="amparos">
-            {amparos.map((c) => (
-              <div key={c.codigo}>
-                <dt>{c.nombre}</dt>
-                <dd>{c.explicacion}</dd>
-              </div>
-            ))}
-          </dl>
+          {explicacion}
         </>
       ) : null}
     </>

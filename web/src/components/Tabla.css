@@ -18,8 +18,10 @@
 }
 
 .tabla thead th {
-  background: var(--color-gray-50);
-  border-top: var(--border);
+  color: var(--color-navy);
+  background: var(--color-blue-50);
+  border-top: 1px solid var(--color-blue-100);
+  border-bottom: 1px solid var(--color-blue-100);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -29,7 +31,7 @@
 }
 
 .tabla tbody tr:hover td {
-  background: var(--color-gray-50);
+  background: #f6f9fd;
 }
 
 .tabla .numero {

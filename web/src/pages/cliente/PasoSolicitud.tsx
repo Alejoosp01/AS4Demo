@@ -85,7 +85,7 @@ export function PasoSolicitud() {
               Puede conocer, actualizar o suprimir sus datos escribiendo a la agencia.
             </p>
             <Casilla id="autorizaDatos" marcada={autoriza} onCambiar={setAutoriza} error={errores.autorizaDatos}>
-              Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.
+              Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012. La agencia guarda la fecha, la hora y la versión de esta autorización.
             </Casilla>
           </fieldset>
 

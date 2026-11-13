@@ -13,6 +13,7 @@ export function obtenerCatalogos(): Promise<Catalogos> {
 
 export const crearSolicitud = (datos: unknown) => pedir<{ token: string }>("POST", "/solicitudes", datos);
 export const obtenerSolicitud = (token: string) => pedir<SolicitudVista>("GET", `/solicitudes/${token}`);
+export const guardarBorrador = (token: string, datos: unknown) => pedir<SolicitudVista>("PUT", `/solicitudes/${token}/borrador`, datos);
 export const guardarFormulario = (token: string, datos: unknown) => pedir<SolicitudVista>("PUT", `/solicitudes/${token}/formulario`, datos);
 export const elegirOferta = (token: string, ofertaId: number) => pedir<SolicitudVista>("POST", `/solicitudes/${token}/eleccion`, { ofertaId });
 export const cancelarEleccion = (token: string) => pedir<SolicitudVista>("DELETE", `/solicitudes/${token}/eleccion`);

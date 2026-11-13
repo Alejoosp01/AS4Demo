@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { TopBar } from "./components/TopBar";
 import { Bandeja } from "./pages/asesor/Bandeja";
 import { DetalleSolicitud } from "./pages/asesor/DetalleSolicitud";
+import { Inicio } from "./pages/asesor/Inicio";
 import { Renovaciones } from "./pages/asesor/Renovaciones";
 import { PasoSolicitud } from "./pages/cliente/PasoSolicitud";
 import { Solicitud } from "./pages/cliente/Solicitud";
@@ -29,7 +30,8 @@ export function App() {
         <Route path="/ingreso" element={<Ingreso />} />
         <Route path="/solicitud" element={<LayoutCliente><PasoSolicitud /></LayoutCliente>} />
         <Route path="/solicitud/:token" element={<LayoutCliente><Solicitud /></LayoutCliente>} />
-        <Route path="/asesor" element={<RutaProtegida rol="ASESOR"><Bandeja /></RutaProtegida>} />
+        <Route path="/asesor" element={<RutaProtegida rol="ASESOR"><Inicio /></RutaProtegida>} />
+        <Route path="/asesor/solicitudes" element={<RutaProtegida rol="ASESOR"><Bandeja /></RutaProtegida>} />
         <Route path="/asesor/solicitudes/:id" element={<RutaProtegida rol="ASESOR"><DetalleSolicitud /></RutaProtegida>} />
         <Route path="/asesor/renovaciones" element={<RutaProtegida rol="ASESOR"><Renovaciones /></RutaProtegida>} />
         <Route path="/gerencia" element={<RutaProtegida rol="GERENTE"><Tablero /></RutaProtegida>} />

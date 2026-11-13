@@ -5,7 +5,7 @@
   margin: 0 0 var(--space-5);
   padding: 0 0 var(--space-3);
   list-style: none;
-  border-bottom: var(--border);
+  border-bottom: 2px solid var(--color-blue-50);
   font-size: var(--font-size-small);
   color: var(--color-gray-600);
 }

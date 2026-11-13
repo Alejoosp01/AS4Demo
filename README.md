@@ -8,11 +8,30 @@ Es un proyecto universitario (PRI2IS, Escuela Colombiana de Ingeniería). **Las 
 
 | Rol | Acceso | Funciones |
 |---|---|---|
-| Cliente | Enlace, sin iniciar sesión (`/solicitud`) | 1. Solicitud con autorización de datos (Ley 1581 de 2012). 2. Formulario del ramo y SARLAFT único. 3. Comparativo con explicación de cada amparo; elegir una oferta o «No me interesa» con motivo. 4. Aceptación con código de confirmación y constancia. |
-| Asesor | Ingreso (`/ingreso`) | Bandeja con filtros por ramo, estado y asignación, y búsqueda. Detalle con el mismo comparativo del cliente. Registro de la asesoría con criterio obligatorio (mínimo 30 caracteres, no editable). Emisión de la póliza. Renovaciones de los próximos 30 días. |
+| Cliente | Enlace, sin iniciar sesión (`/solicitud`) | 1. Solicitud con autorización de datos (Ley 1581 de 2012; se guardan fecha, hora y versión). 2. Formulario del ramo y SARLAFT único; puede guardar y volver por el mismo enlace, donde solo ve los campos pendientes. 3. Comparativo con explicación de cada amparo; elegir una oferta o «No me interesa» con motivo. 4. Aceptación con código de confirmación y constancia. |
+| Asesor | Ingreso (`/ingreso`) | **Mi trabajo**: sus tareas en orden de prioridad (emitir, asesorar, contactar clientes detenidos, renovaciones). **Solicitudes**: bandeja con la columna «Qué sigue» y filtros por tarea, ramo y estado. **Detalle guiado**: recorrido del proceso, panel «Qué sigue» con una sola acción a la vez, el mismo comparativo del cliente, bitácora. Asesoría con criterio obligatorio (mínimo 30 caracteres, no editable). Emisión. **Renovaciones** de los próximos 30 días con la recotización automática. |
 | Gerencia | Ingreso (`/ingreso`) | Tablero con seis variables por ramo y por mes: siniestros, tasa de renovación, PQR, motivos de no compra, productos más cotizados y cotizado frente a vendido. Control de imparcialidad con aviso cuando una aseguradora supera el 40 % de las ventas del periodo. |
 
 El orden del comparativo es: mayor puntaje de cobertura y, a igual cobertura, menor prima. **La comisión de la agencia nunca interviene en el orden** ni sale en las respuestas que ven el cliente y el asesor.
+
+## Reglas del proceso TO-BE en el servicio
+
+| Regla | Tarea | Dónde está |
+|---|---|---|
+| Autorización de datos con fecha, hora y versión | T01 | `api/src/servicios/solicitudes.ts`, `VERSION_AUTORIZACION` |
+| SARLAFT único | T03 | `api/src/validacion/sarlaft.ts` |
+| Validación campo por campo y enlace con solo los campos pendientes | T04, T06 | `api/src/validacion/`, `pendientes.ts`, `PUT /solicitudes/:token/borrador` |
+| Recordatorio a las 24 h, alerta al asesor a las 48 h, cierre a los 5 días hábiles | T07 | `api/src/servicios/seguimiento.ts` |
+| Comparativo sin comisión | T08 | `api/src/cotizacion/ordenarOfertas.ts` |
+| Criterio de la recomendación obligatorio | T09 | `api/src/validacion/asesoria.ts` |
+| Motivo de no compra de lista cerrada y aceptación con código | T10 | `api/src/servicios/solicitudes.ts` |
+| Renovación anticipada: recotización 30 días antes del vencimiento | T15 | `api/src/servicios/renovaciones.ts` |
+| Tablero con las seis variables y control de imparcialidad | T17 | `api/src/servicios/tablero.ts` |
+| Trazabilidad: bitácora de cada paso y cada aviso | 10.2 | `api/src/servicios/bitacora.ts` |
+
+El seguimiento (T07 y T15) corre al arrancar el servicio y luego cada 10 minutos. Los días hábiles son de lunes a viernes; no se descuentan festivos.
+
+La interfaz usa la paleta y el logotipo del informe del proyecto: títulos en azul oscuro con tipografía serif, filete azul y tablas con encabezado azul claro (`web/src/styles/variables.css`).
 
 ## Cómo levantarlo
 
@@ -46,8 +65,9 @@ Los valores por defecto están en `.env.example`. Solo hace falta crear un `.env
 ## Datos de ejemplo
 
 - 8 aseguradoras ficticias, 2 asesores y 1 gerente.
-- 40 solicitudes de los últimos 6 meses en todos los estados, con su comparativo calculado por el motor.
-- 23 pólizas emitidas hace un año, para que la tasa de renovación y la lista de vencimientos tengan contenido.
+- 63 solicitudes en todos los estados, con su comparativo calculado por el motor y su bitácora.
+- 6 solicitudes con datos pendientes, una en cada tramo del seguimiento: al arrancar, el servicio envía los recordatorios, alerta a los asesores y cierra la vencida.
+- 23 pólizas emitidas hace un año, para que la tasa de renovación y la lista de vencimientos tengan contenido; las 5 que vencen en los próximos 30 días reciben su propuesta de renovación al arrancar.
 - Siniestros y PQR repartidos en los mismos 6 meses.
 - Aseguradora Andina concentra a propósito cerca de la mitad de las ventas recientes, para que el control de imparcialidad muestre el aviso.
 
@@ -61,7 +81,7 @@ api/                 Node 20, Express, TypeScript, Prisma, Zod
   src/auth/          sesión con cookie httpOnly firmada
   src/cotizacion/    adaptadores, tarifas, motor y orden del comparativo
   src/validacion/    esquemas Zod (solicitud, ramos, SARLAFT, asesoría, emisión)
-  src/servicios/     reglas de negocio de solicitudes, asesor y tablero
+  src/servicios/     solicitudes, asesor, seguimiento, renovaciones, bitácora y tablero
   src/routes/        rutas del cliente, autenticación, asesor y gerencia
   test/              pruebas de Vitest
 web/                 React, Vite, TypeScript, React Router, CSS propio
@@ -74,7 +94,7 @@ docker-compose.yml   servicios db, api y web
 
 ## Pruebas
 
-**Vitest (api):** motor de cotización, orden del comparativo (incluida la prueba de que la comisión no lo altera), validaciones, sesión firmada y control de imparcialidad.
+**Vitest (api), 64 pruebas:** motor de cotización, orden del comparativo (incluida la prueba de que la comisión no lo altera), validaciones, sesión firmada, control de imparcialidad, plazos del seguimiento, campos pendientes, siguiente paso y renovación anticipada.
 
 ```bash
 cd api
@@ -88,7 +108,7 @@ Sin Node instalado, desde PowerShell en la carpeta del proyecto:
 docker run --rm -v "${PWD}\api:/app" -v as4_api_node_modules:/app/node_modules -w /app node:20 sh -c "npm ci && npx prisma generate && npm run typecheck && npm test"
 ```
 
-**Playwright (web):** corre contra la aplicación levantada con Docker, en escritorio y en celular. Cubre el flujo completo del cliente en Autos, «No me interesa», la bandeja del asesor, la asesoría con criterio obligatorio, la emisión y el tablero.
+**Playwright (web):** corre contra la aplicación levantada con Docker, en escritorio y en celular. Cubre el flujo completo del cliente en Autos, «No me interesa», el inicio y la bandeja del asesor, la asesoría con criterio obligatorio, los campos pendientes, la emisión y el tablero.
 
 ```bash
 cd web
@@ -130,6 +150,7 @@ Para conectar una aseguradora real:
 ## Qué está simulado
 
 - Las 8 aseguradoras, sus tarifas, deducibles y amparos.
+- Los recordatorios al cliente, las alertas al asesor y el envío de la propuesta de renovación: quedan en la bitácora de la solicitud, no se manda correo ni SMS.
 - El envío del código de confirmación: no se manda SMS; el código se muestra en pantalla y en el registro del servicio.
 - La consulta de listas restrictivas del SARLAFT, que no se hace.
 - La emisión: el asesor registra a mano el número y la vigencia de la póliza que expediría la aseguradora.
@@ -138,7 +159,7 @@ Para conectar una aseguradora real:
 ## Qué faltaría para producción
 
 - Adaptadores reales con las aseguradoras y manejo de sus credenciales en un gestor de secretos.
-- Envío real del código por SMS o correo, con vencimiento e intentos limitados.
+- Envío real del código, los recordatorios y las propuestas por SMS o correo; calendario de festivos para los días hábiles.
 - Consulta de listas restrictivas (SARLAFT) y firma electrónica de la solicitud.
 - Registro de siniestros y PQR desde la aplicación (hoy solo existen como datos de ejemplo para el tablero).
 - Límite de intentos de ingreso, recuperación de contraseña, administración de usuarios y auditoría de accesos.

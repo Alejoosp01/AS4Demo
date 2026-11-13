@@ -329,6 +329,8 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
         detalleNoInteres: motivo === MotivoNoInteres.OTRO ? pick(DETALLES_OTRO) : null,
         asesorId,
         creadaEn: plan.creadaEn,
+        // La última novedad de las solicitudes de ejemplo ocurrió poco después de recibirlas, no hoy.
+        actualizadaEn: tieneFormulario ? addDays(plan.creadaEn, plan.estado === EstadoSolicitud.COTIZADA ? 0.05 : 2) : plan.creadaEn,
       },
     });
     solicitudIds.push({ id: solicitud.id, ramo: plan.ramo });
@@ -347,7 +349,11 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
     // Cada solicitud se cotiza con las tarifas del año en que se recibió: así la recotización de la
     // renovación refleja, en autos, que el vehículo tiene un año más.
     const adaptadores = adaptadoresDe(plan.creadaEn.getFullYear());
-    for (const oferta of await cotizar(cotizable, adaptadores)) {
+    // Las pólizas de la cartera se vendieron con la tarifa del año anterior, que en estos datos de ejemplo
+    // era un 6 % más baja. Así la propuesta de renovación muestra un cambio de prima.
+    const tarifaAnterior = plan.creadaEn.getFullYear() < today.getFullYear() ? 1 / 1.06 : 1;
+    for (const cotizada of await cotizar(cotizable, adaptadores)) {
+      const oferta = { ...cotizada, primaAnual: Math.round((cotizada.primaAnual * tarifaAnterior) / 1000) * 1000 };
       const created = await tx.oferta.create({
         data: {
           solicitudId: solicitud.id,

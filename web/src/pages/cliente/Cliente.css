@@ -98,3 +98,9 @@
     margin-bottom: var(--space-3);
   }
 }
+
+.seccion-formulario > legend {
+  font-family: var(--font-titulos);
+  font-weight: 700;
+  color: var(--color-navy);
+}

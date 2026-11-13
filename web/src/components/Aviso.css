@@ -17,10 +17,17 @@
   color: var(--color-red);
 }
 
+.aviso--error {
+  background: var(--color-red-50);
+}
+
 .aviso--info {
   border-left-color: var(--color-blue);
+  background: var(--color-blue-50);
+  border-color: var(--color-blue-100);
 }
 
 .aviso--alerta {
   border-left-color: var(--color-amber);
+  background: var(--color-amber-50);
 }
