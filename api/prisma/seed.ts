@@ -23,6 +23,9 @@ import type { Oferta } from "../src/cotizacion/tipos";
 import { digitoVerificacionNit } from "../src/validacion/nit";
 import { validarDatosRamo } from "../src/validacion/ramos";
 import { sarlaftSchema } from "../src/validacion/sarlaft";
+import { NOMBRES_MOTIVO } from "../src/catalogos";
+import { AUTOR_CLIENTE, AUTOR_PLATAFORMA, type TipoEvento } from "../src/servicios/bitacora";
+import { VERSION_AUTORIZACION } from "../src/validacion/solicitud";
 
 const prisma = new PrismaClient();
 
@@ -157,10 +160,25 @@ function buildSarlaft(ramo: Ramo) {
   });
 }
 
+/** Formulario a medio diligenciar: los datos válidos del ramo y del SARLAFT, sin los campos indicados. */
+function buildBorrador(ramo: Ramo, sinDiligenciar: string[]) {
+  const completo: Record<string, Record<string, unknown>> = {
+    datosRamo: buildDatosRamo(ramo) as Record<string, unknown>,
+    sarlaft: buildSarlaft(ramo),
+  };
+  for (const campo of sinDiligenciar) {
+    const [seccion, clave] = campo.split(".");
+    delete completo[seccion][clave];
+  }
+  return completo;
+}
+
 interface SolicitudPlan {
   ramo: Ramo;
   estado: EstadoSolicitud;
   creadaEn: Date;
+  // Campos que el cliente dejó sin diligenciar; solo aplica a las solicitudes nuevas.
+  sinDiligenciar?: "todo" | string[];
   poliza?: { fechaEmision: Date; fechaVencimiento: Date; estadoRenovacion: EstadoRenovacion };
 }
 
@@ -175,14 +193,28 @@ function buildPlans(today: Date): SolicitudPlan[] {
   const plans: SolicitudPlan[] = [];
 
   const recientes: [EstadoSolicitud, number, number, number][] = [
-    [EstadoSolicitud.NUEVA, 4, 0, 6],
-    [EstadoSolicitud.COTIZADA, 6, 2, 20],
-    [EstadoSolicitud.ASESORADA, 5, 5, 40],
+    [EstadoSolicitud.COTIZADA, 5, 2, 20],
+    [EstadoSolicitud.ASESORADA, 4, 5, 40],
   ];
   for (const [estado, cantidad, minDias, maxDias] of recientes) {
     for (let i = 0; i < cantidad; i += 1) {
       plans.push({ ramo: pick(RAMOS_PONDERADOS), estado, creadaEn: addDays(today, -between(minDias, maxDias)) });
     }
+  }
+
+  // Solicitudes con datos pendientes en cada tramo del seguimiento: sin aviso, con recordatorio (24 h),
+  // con alerta al asesor (48 h) y vencidas (cinco días hábiles). El seguimiento las procesa al arrancar.
+  const pendientes: [number, "todo" | string[]][] = [
+    [3, "todo"],
+    [30, ["sarlaft.ingresosMensuales", "sarlaft.egresosMensuales", "sarlaft.declaraOrigenLicito"]],
+    [54, ["sarlaft.declaraOrigenLicito"]],
+    [76, "todo"],
+    [100, ["sarlaft.ocupacion", "sarlaft.origenFondos", "sarlaft.personaExpuestaPoliticamente", "sarlaft.declaraOrigenLicito"]],
+    [11 * 24, "todo"],
+  ];
+  const ahora = new Date();
+  for (const [horas, sinDiligenciar] of pendientes) {
+    plans.push({ ramo: pick(RAMOS_PONDERADOS), estado: EstadoSolicitud.NUEVA, creadaEn: new Date(ahora.getTime() - horas * 60 * 60 * 1000), sinDiligenciar });
   }
 
   const cerradas: EstadoSolicitud[] = [
@@ -249,15 +281,23 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
     aseguradoraIds.set(aseguradora.codigo, created.id);
   }
 
-  const adaptadores = crearAdaptadoresSimulados(today.getFullYear());
+  const porAnio = new Map<number, ReturnType<typeof crearAdaptadoresSimulados>>();
+  const adaptadoresDe = (anio: number) => {
+    if (!porAnio.has(anio)) porAnio.set(anio, crearAdaptadoresSimulados(anio));
+    return porAnio.get(anio)!;
+  };
   const polizas: PolizaCreada[] = [];
   const solicitudIds: { id: number; ramo: Ramo }[] = [];
   let consecutivoPoliza = 1200;
+  const turnos = new Map<EstadoSolicitud, number>();
 
   for (const plan of buildPlans(today)) {
     const nombre = plan.ramo === Ramo.PYMES ? pick(EMPRESAS) : `${pick(NOMBRES)} ${pick(APELLIDOS)} ${pick(APELLIDOS)}`;
     const tieneFormulario = plan.estado !== EstadoSolicitud.NUEVA;
-    const asesorId = tieneFormulario ? pick(asesorIds) : null;
+    // Se alternan los asesores dentro de cada estado para que ambos tengan tareas de todos los tipos.
+    const turno = turnos.get(plan.estado) ?? 0;
+    turnos.set(plan.estado, turno + 1);
+    const asesorId = tieneFormulario ? asesorIds[turno % asesorIds.length] : null;
     const motivo = plan.estado === EstadoSolicitud.NO_INTERESADA
       ? pick([MotivoNoInteres.PRECIO, MotivoNoInteres.PRECIO, MotivoNoInteres.PRECIO, MotivoNoInteres.COBERTURA, MotivoNoInteres.COBERTURA, MotivoNoInteres.YA_TENGO_SEGURO, MotivoNoInteres.LO_VOY_A_PENSAR, MotivoNoInteres.OTRO])
       : null;
@@ -281,6 +321,8 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
         telefono: `3${between(0, 2)}${between(0, 9)}${between(1_000_000, 9_999_999)}`,
         autorizaDatos: true,
         autorizaDatosEn: plan.creadaEn,
+        autorizaDatosVersion: VERSION_AUTORIZACION,
+        borrador: Array.isArray(plan.sinDiligenciar) ? toJson(buildBorrador(plan.ramo, plan.sinDiligenciar)) : undefined,
         datosRamo: cotizable ? toJson(cotizable.datos) : undefined,
         sarlaft: tieneFormulario ? toJson(buildSarlaft(plan.ramo)) : undefined,
         motivoNoInteres: motivo,
@@ -291,9 +333,20 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
     });
     solicitudIds.push({ id: solicitud.id, ramo: plan.ramo });
 
+    const evento = (tipo: TipoEvento, detalle: string, autor: string, dias: number) =>
+      tx.evento.create({ data: { solicitudId: solicitud.id, tipo, detalle, autor, creadoEn: new Date(plan.creadaEn.getTime() + dias * DAY_MS) } });
+    await evento("SOLICITUD", `Solicitud recibida con autorización de tratamiento de datos, versión ${VERSION_AUTORIZACION}.`, AUTOR_CLIENTE, 0);
+    if (Array.isArray(plan.sinDiligenciar)) {
+      const faltan = plan.sinDiligenciar.length;
+      await evento("DATOS_PARCIALES", `El cliente guardó datos parciales del formulario; ${faltan === 1 ? "queda 1 campo pendiente" : `quedan ${faltan} campos pendientes`}.`, AUTOR_CLIENTE, 0.01);
+    }
+
     if (!cotizable || asesorId === null) continue;
 
     const ofertas: (Oferta & { id: number })[] = [];
+    // Cada solicitud se cotiza con las tarifas del año en que se recibió: así la recotización de la
+    // renovación refleja, en autos, que el vehículo tiene un año más.
+    const adaptadores = adaptadoresDe(plan.creadaEn.getFullYear());
     for (const oferta of await cotizar(cotizable, adaptadores)) {
       const created = await tx.oferta.create({
         data: {
@@ -307,7 +360,9 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
       });
       ofertas.push({ ...oferta, id: created.id });
     }
+    await evento("COTIZACION", `Datos completos y SARLAFT único recibidos. La plataforma cotizó con ${adaptadores.length} aseguradoras y obtuvo ${ofertas.length} ${ofertas.length === 1 ? "oferta" : "ofertas"}.`, AUTOR_PLATAFORMA, 0.05);
     if (ofertas.length === 0) continue;
+    const asesorNombre = USUARIOS.filter((u) => u.rol === Rol.ASESOR)[asesorIds.indexOf(asesorId)].nombre;
 
     const vendida = plan.estado === EstadoSolicitud.ACEPTADA || plan.estado === EstadoSolicitud.EMITIDA;
     const conAsesoria = plan.estado === EstadoSolicitud.ASESORADA
@@ -323,7 +378,9 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
           creadaEn: addDays(plan.creadaEn, 1),
         },
       });
+      await evento("ASESORIA", `Asesoría registrada: recomienda ${ofertas[0].aseguradoraNombre}. El criterio quedó guardado y no se puede modificar.`, asesorNombre, 1);
     }
+    if (motivo) await evento("NO_INTERES", `El cliente indicó que no continúa. Motivo: ${NOMBRES_MOTIVO[motivo].toLowerCase()}.`, AUTOR_CLIENTE, 2);
 
     if (!vendida) continue;
 
@@ -342,6 +399,7 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
         confirmadaEn: aceptadaEn,
       },
     });
+    await evento("ACEPTACION", `El cliente eligió la oferta de ${elegida.aseguradoraNombre} y confirmó la aceptación con el código de seis dígitos.`, AUTOR_CLIENTE, 2);
 
     if (plan.poliza) {
       consecutivoPoliza += between(1, 9);
@@ -355,6 +413,15 @@ async function seed(tx: Prisma.TransactionClient, claveHashes: string[], today: 
           estadoRenovacion: plan.poliza.estadoRenovacion,
         },
       });
+      await tx.evento.create({
+        data: { solicitudId: solicitud.id, tipo: "EMISION", detalle: `Póliza ${poliza.numero} emitida.`, autor: asesorNombre, creadoEn: poliza.fechaEmision },
+      });
+      if (plan.poliza.estadoRenovacion !== EstadoRenovacion.PENDIENTE) {
+        const renovada = plan.poliza.estadoRenovacion === EstadoRenovacion.RENOVADA;
+        await tx.evento.create({
+          data: { solicitudId: solicitud.id, tipo: "RENOVACION", detalle: `Póliza ${poliza.numero} marcada como ${renovada ? "renovada" : "no renovada"}.`, autor: asesorNombre, creadoEn: addDays(poliza.fechaVencimiento, -8) },
+        });
+      }
       polizas.push({ id: poliza.id, ramo: plan.ramo, fechaEmision: poliza.fechaEmision, fechaVencimiento: poliza.fechaVencimiento });
     }
   }

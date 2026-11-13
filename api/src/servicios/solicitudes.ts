@@ -1,26 +1,32 @@
 import { randomBytes, randomInt } from "node:crypto";
-import { EstadoSolicitud, Prisma, Rol } from "@prisma/client";
+import { EstadoSolicitud, Prisma } from "@prisma/client";
 import { prisma } from "../db";
+import { NOMBRES_MOTIVO } from "../catalogos";
 import { cotizar, crearAdaptadoresSimulados } from "../cotizacion/motor";
 import { ordenarOfertas } from "../cotizacion/ordenarOfertas";
 import type { CoberturaOferta } from "../cotizacion/tipos";
 import { ErrorDeNegocio, ErrorValidacion } from "../errores";
 import { erroresPorCampo } from "../validacion/errores";
+import { camposPendientes, limpiarBorrador } from "../validacion/pendientes";
 import { validarDatosRamo } from "../validacion/ramos";
 import { sarlaftSchema } from "../validacion/sarlaft";
-import { noInteresSchema, solicitudSchema } from "../validacion/solicitud";
+import { VERSION_AUTORIZACION, noInteresSchema, solicitudSchema } from "../validacion/solicitud";
+import { AUTOR_CLIENTE, registrarEvento } from "./bitacora";
+import { asesorConMenosCarga } from "./seguimiento";
+import { siguientePaso } from "./siguientePaso";
+
 
 const incluir = {
   ofertas: { include: { aseguradora: true } },
   aceptacion: true,
-  poliza: true,
+  poliza: { include: { propuestaRenovacion: true } },
+  eventos: { orderBy: { creadoEn: "asc" } },
   asesoria: { include: { asesor: true } },
   asesor: true,
 } satisfies Prisma.SolicitudInclude;
 
 export type SolicitudCompleta = Prisma.SolicitudGetPayload<{ include: typeof incluir }>;
 
-const ESTADOS_ABIERTOS: EstadoSolicitud[] = [EstadoSolicitud.NUEVA, EstadoSolicitud.COTIZADA, EstadoSolicitud.ASESORADA];
 const ESTADOS_CON_COMPARATIVO: EstadoSolicitud[] = [EstadoSolicitud.COTIZADA, EstadoSolicitud.ASESORADA];
 
 export function numeroConstancia(id: number, fecha: Date): string {
@@ -55,6 +61,10 @@ export function vistaSolicitud(s: SolicitudCompleta) {
       telefono: s.telefono,
     },
     autorizaDatosEn: s.autorizaDatosEn,
+    autorizaDatosVersion: s.autorizaDatosVersion,
+    // Mientras faltan datos, el cliente retoma lo que ya escribió y solo se le piden los campos pendientes.
+    borrador: s.estado === EstadoSolicitud.NUEVA ? s.borrador : null,
+    pendientes: s.estado === EstadoSolicitud.NUEVA ? camposPendientes(s.ramo, s.borrador) : [],
     datosRamo: s.datosRamo,
     sarlaft: s.sarlaft,
     ofertas,
@@ -83,6 +93,24 @@ export function vistaSolicitud(s: SolicitudCompleta) {
   };
 }
 
+/** Vista para el asesor: agrega el siguiente paso, el seguimiento automático y la bitácora. */
+export function vistaInterna(s: SolicitudCompleta, hoy = new Date()) {
+  return {
+    ...vistaSolicitud(s),
+    siguientePaso: siguientePaso({
+      estado: s.estado,
+      alertaAsesorEn: s.alertaAsesorEn,
+      tieneAsesoria: Boolean(s.asesoria),
+      eleccionSinConfirmar: Boolean(s.aceptacion && !s.aceptacion.confirmadaEn),
+      poliza: s.poliza,
+    }, hoy),
+    seguimiento: { recordatorioEn: s.recordatorioEn, alertaAsesorEn: s.alertaAsesorEn, cerradaEn: s.cerradaEn },
+    polizaId: s.poliza?.id ?? null,
+    estadoRenovacion: s.poliza?.estadoRenovacion ?? null,
+    eventos: s.eventos.map((e) => ({ tipo: e.tipo, detalle: e.detalle, autor: e.autor, creadoEn: e.creadoEn })),
+  };
+}
+
 export async function buscarPorToken(token: string): Promise<SolicitudCompleta> {
   const solicitud = await prisma.solicitud.findUnique({ where: { token }, include: incluir });
   if (!solicitud) throw new ErrorDeNegocio(404, "No encontramos la solicitud. Revise el enlace.");
@@ -99,26 +127,50 @@ export async function crearSolicitud(entrada: unknown) {
   const resultado = solicitudSchema.safeParse(entrada);
   if (!resultado.success) throw new ErrorValidacion(erroresPorCampo(resultado.error));
   const { autorizaDatos, ...datos } = resultado.data;
-  return prisma.solicitud.create({
-    data: { ...datos, autorizaDatos, autorizaDatosEn: new Date(), token: randomBytes(16).toString("hex") },
+  const ahora = new Date();
+  return prisma.$transaction(async (tx) => {
+    const solicitud = await tx.solicitud.create({
+      data: {
+        ...datos,
+        autorizaDatos,
+        autorizaDatosEn: ahora,
+        autorizaDatosVersion: VERSION_AUTORIZACION,
+        token: randomBytes(16).toString("hex"),
+      },
+    });
+    await registrarEvento(tx, solicitud.id, "SOLICITUD",
+      `Solicitud recibida con autorización de tratamiento de datos, versión ${VERSION_AUTORIZACION}.`, AUTOR_CLIENTE, ahora);
+    return solicitud;
   });
 }
 
-// Reparto equilibrado: la solicitud va al asesor con menos solicitudes abiertas.
-async function asesorConMenosCarga(tx: Prisma.TransactionClient): Promise<number | null> {
-  const asesores = await tx.usuario.findMany({
-    where: { rol: Rol.ASESOR },
-    select: { id: true, _count: { select: { solicitudes: { where: { estado: { in: ESTADOS_ABIERTOS } } } } } },
-    orderBy: { id: "asc" },
+function exigirFormularioAbierto(solicitud: SolicitudCompleta) {
+  if (solicitud.estado === EstadoSolicitud.CERRADA) {
+    throw new ErrorDeNegocio(409, "Esta solicitud se cerró porque no se completaron los datos a tiempo. Puede crear una nueva solicitud.");
+  }
+  const permitido = solicitud.estado === EstadoSolicitud.NUEVA || solicitud.estado === EstadoSolicitud.COTIZADA;
+  if (!permitido || solicitud.aceptacion) throw new ErrorDeNegocio(409, "Esta solicitud ya no admite cambios.");
+}
+
+/** Guarda lo que el cliente lleva diligenciado, sin validar, para que lo retome desde el mismo enlace. */
+export async function guardarBorrador(token: string, entrada: unknown) {
+  const solicitud = await buscarPorToken(token);
+  if (solicitud.estado !== EstadoSolicitud.NUEVA) throw new ErrorDeNegocio(409, "Esta solicitud ya no admite cambios.");
+  const borrador = limpiarBorrador(solicitud.ramo, entrada);
+  const faltan = camposPendientes(solicitud.ramo, borrador).length;
+  await prisma.$transaction(async (tx) => {
+    await tx.solicitud.update({ where: { id: solicitud.id }, data: { borrador: borrador as unknown as Prisma.InputJsonValue } });
+    // Un solo registro en la bitácora por solicitud, para no llenarla con cada guardado.
+    if (!solicitud.borrador) {
+      await registrarEvento(tx, solicitud.id, "DATOS_PARCIALES", `El cliente guardó datos parciales del formulario; ${faltan === 1 ? "queda 1 campo pendiente" : `quedan ${faltan} campos pendientes`}.`, AUTOR_CLIENTE);
+    }
   });
-  if (asesores.length === 0) return null;
-  return asesores.reduce((menor, a) => (a._count.solicitudes < menor._count.solicitudes ? a : menor)).id;
+  return buscarPorToken(token);
 }
 
 export async function guardarFormulario(token: string, entrada: unknown) {
   const solicitud = await buscarPorToken(token);
-  const permitido = solicitud.estado === EstadoSolicitud.NUEVA || solicitud.estado === EstadoSolicitud.COTIZADA;
-  if (!permitido || solicitud.aceptacion) throw new ErrorDeNegocio(409, "Esta solicitud ya no admite cambios.");
+  exigirFormularioAbierto(solicitud);
 
   const cuerpo = (entrada ?? {}) as { datosRamo?: unknown; sarlaft?: unknown };
   const ramo = validarDatosRamo(solicitud.ramo, cuerpo.datosRamo ?? {});
@@ -151,10 +203,13 @@ export async function guardarFormulario(token: string, entrada: unknown) {
       data: {
         datosRamo: ramo.valor.datos as Prisma.InputJsonValue,
         sarlaft: sarlaft.data as Prisma.InputJsonValue,
+        borrador: Prisma.DbNull,
         estado: EstadoSolicitud.COTIZADA,
         asesorId: solicitud.asesorId ?? (await asesorConMenosCarga(tx)),
       },
     });
+    await registrarEvento(tx, solicitud.id, "COTIZACION",
+      `Datos completos y SARLAFT único recibidos. La plataforma cotizó con ${adaptadores.length} aseguradoras y obtuvo ${ofertas.length} ${ofertas.length === 1 ? "oferta" : "ofertas"}.`);
   });
   return buscarPorToken(token);
 }
@@ -181,6 +236,7 @@ export async function elegirOferta(token: string, entrada: unknown) {
       create: { solicitudId: solicitud.id, ofertaId: oferta.id, codigo },
       update: { ofertaId: oferta.id, codigo, generadaEn: new Date() },
     }),
+    registrarEvento(prisma, solicitud.id, "ELECCION", `El cliente eligió la oferta de ${oferta.aseguradora.nombre}. Se generó el código de confirmación.`, AUTOR_CLIENTE),
   ]);
   process.stdout.write(`Código de confirmación de la solicitud ${solicitud.id}: ${codigo}\n`);
   return buscarPorToken(token);
@@ -207,6 +263,7 @@ export async function confirmarAceptacion(token: string, entrada: unknown) {
   await prisma.$transaction([
     prisma.aceptacion.update({ where: { solicitudId: solicitud.id }, data: { confirmadaEn: new Date() } }),
     prisma.solicitud.update({ where: { id: solicitud.id }, data: { estado: EstadoSolicitud.ACEPTADA } }),
+    registrarEvento(prisma, solicitud.id, "ACEPTACION", "El cliente confirmó la aceptación con el código de seis dígitos.", AUTOR_CLIENTE),
   ]);
   return buscarPorToken(token);
 }
@@ -228,6 +285,7 @@ export async function registrarNoInteres(token: string, entrada: unknown) {
         detalleNoInteres: resultado.data.detalle || null,
       },
     }),
+    registrarEvento(prisma, solicitud.id, "NO_INTERES", `El cliente indicó que no continúa. Motivo: ${NOMBRES_MOTIVO[resultado.data.motivo].toLowerCase()}.`, AUTOR_CLIENTE),
   ]);
   return buscarPorToken(token);
 }

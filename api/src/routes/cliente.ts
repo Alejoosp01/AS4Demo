@@ -7,6 +7,7 @@ import {
   confirmarAceptacion,
   crearSolicitud,
   elegirOferta,
+  guardarBorrador,
   guardarFormulario,
   registrarNoInteres,
   vistaSolicitud,
@@ -25,6 +26,10 @@ rutasCliente.post("/solicitudes", asincrono(async (req, res) => {
 
 rutasCliente.get("/solicitudes/:token", asincrono(async (req, res) => {
   res.json(vistaSolicitud(await buscarPorToken(req.params.token)));
+}));
+
+rutasCliente.put("/solicitudes/:token/borrador", asincrono(async (req, res) => {
+  res.json(vistaSolicitud(await guardarBorrador(req.params.token, req.body)));
 }));
 
 rutasCliente.put("/solicitudes/:token/formulario", asincrono(async (req, res) => {

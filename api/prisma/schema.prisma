@@ -27,6 +27,8 @@ enum EstadoSolicitud {
   ACEPTADA
   NO_INTERESADA
   EMITIDA
+  // Cierre automático: el cliente no completó sus datos en cinco días hábiles (T07).
+  CERRADA
 }
 
 enum MotivoNoInteres {
@@ -81,6 +83,13 @@ model Solicitud {
   telefono         String
   autorizaDatos    Boolean
   autorizaDatosEn  DateTime
+  // Versión del texto de autorización que aceptó el titular (Ley 1581 de 2012).
+  autorizaDatosVersion String    @default("1.0")
+  // Datos parciales del formulario mientras el cliente termina de diligenciarlo.
+  borrador         Json?
+  recordatorioEn   DateTime?
+  alertaAsesorEn   DateTime?
+  cerradaEn        DateTime?
   datosRamo        Json?
   sarlaft          Json?
   motivoNoInteres  MotivoNoInteres?
@@ -94,6 +103,7 @@ model Solicitud {
   asesoria         Asesoria?
   poliza           Poliza?
   pqrs             Pqr[]
+  eventos          Evento[]
 
   @@index([estado])
   @@index([ramo])
@@ -152,8 +162,35 @@ model Poliza {
   fechaVencimiento DateTime
   estadoRenovacion EstadoRenovacion @default(PENDIENTE)
   siniestros       Siniestro[]
+  propuestaRenovacion PropuestaRenovacion?
 
   @@index([fechaVencimiento])
+}
+
+// Recotización automática treinta días antes del vencimiento (T15).
+model PropuestaRenovacion {
+  id                Int      @id @default(autoincrement())
+  polizaId          Int      @unique
+  poliza            Poliza   @relation(fields: [polizaId], references: [id], onDelete: Cascade)
+  generadaEn        DateTime @default(now())
+  enviadaEn         DateTime
+  primaActual       Int
+  aseguradoraActual String
+  // Comparativo de la recotización, ya ordenado por cobertura y prima. No guarda comisiones.
+  ofertas           Json
+}
+
+// Bitácora de la solicitud: deja rastro de cada paso del proceso y de cada aviso automático.
+model Evento {
+  id          Int       @id @default(autoincrement())
+  solicitudId Int
+  solicitud   Solicitud @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  tipo        String
+  detalle     String
+  autor       String
+  creadoEn    DateTime  @default(now())
+
+  @@index([solicitudId, creadoEn])
 }
 
 model Siniestro {

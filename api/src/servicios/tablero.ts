@@ -75,7 +75,7 @@ export async function tablero(meses: number, ramo: Ramo | null, hoy = new Date()
     prisma.aseguradora.findMany({ where: { activa: true }, select: { nombre: true, comisionPct: true } }),
   ]);
 
-  const cotizadas = solicitudes.filter((s) => s.estado !== EstadoSolicitud.NUEVA);
+  const cotizadas = solicitudes.filter((s) => s.estado !== EstadoSolicitud.NUEVA && s.estado !== EstadoSolicitud.CERRADA);
 
   return {
     meses: lista,

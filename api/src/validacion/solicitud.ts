@@ -6,6 +6,9 @@ export const TIPOS_DOCUMENTO = ["CC", "CE", "PA", "NIT"] as const;
 
 export const MOTIVOS_NO_INTERES = ["PRECIO", "COBERTURA", "YA_TENGO_SEGURO", "LO_VOY_A_PENSAR", "OTRO"] as const;
 
+// Versión vigente del texto de autorización de tratamiento de datos que se muestra en el paso 1.
+export const VERSION_AUTORIZACION = "1.0 (noviembre de 2026)";
+
 export const solicitudSchema = z.object({
   nombre: texto("Falta el nombre del tomador").max(120, "El nombre es demasiado largo"),
   tipoDocumento: opcion([...TIPOS_DOCUMENTO], "Seleccione el tipo de documento"),

@@ -3,8 +3,9 @@ import { Router } from "express";
 import { requiereRol, usuarioDe } from "../auth/sesion";
 import { RAMOS, type Ramo } from "../cotizacion/tipos";
 import { asincrono } from "../errores";
-import { bandeja, emitirPoliza, marcarRenovacion, registrarAsesoria, renovacionesProximas } from "../servicios/asesor";
-import { buscarPorId, vistaSolicitud } from "../servicios/solicitudes";
+import { bandeja, emitirPoliza, marcarRenovacion, registrarAsesoria, renovacionesProximas, resumenAsesor } from "../servicios/asesor";
+import { ejecutarSeguimiento } from "../servicios/seguimiento";
+import { buscarPorId, vistaInterna } from "../servicios/solicitudes";
 import { tablero } from "../servicios/tablero";
 
 export const rutasAsesor = Router();
@@ -12,20 +13,29 @@ rutasAsesor.use(requiereRol(Rol.ASESOR));
 
 const id = (valor: string) => Number.parseInt(valor, 10) || 0;
 
+rutasAsesor.get("/resumen", asincrono(async (_req, res) => {
+  res.json(await resumenAsesor(usuarioDe(res).id));
+}));
+
+// Permite correr a mano el seguimiento automático (recordatorios, alertas, cierres y recotización de renovaciones).
+rutasAsesor.post("/seguimiento", asincrono(async (_req, res) => {
+  res.json(await ejecutarSeguimiento());
+}));
+
 rutasAsesor.get("/solicitudes", asincrono(async (req, res) => {
   res.json(await bandeja(req.query as Record<string, string>, usuarioDe(res).id));
 }));
 
 rutasAsesor.get("/solicitudes/:id", asincrono(async (req, res) => {
-  res.json(vistaSolicitud(await buscarPorId(id(req.params.id))));
+  res.json(vistaInterna(await buscarPorId(id(req.params.id))));
 }));
 
 rutasAsesor.post("/solicitudes/:id/asesoria", asincrono(async (req, res) => {
-  res.json(vistaSolicitud(await registrarAsesoria(id(req.params.id), usuarioDe(res).id, req.body)));
+  res.json(vistaInterna(await registrarAsesoria(id(req.params.id), usuarioDe(res).id, req.body)));
 }));
 
 rutasAsesor.post("/solicitudes/:id/emision", asincrono(async (req, res) => {
-  res.json(vistaSolicitud(await emitirPoliza(id(req.params.id), req.body)));
+  res.json(vistaInterna(await emitirPoliza(id(req.params.id), usuarioDe(res).nombre, req.body)));
 }));
 
 rutasAsesor.get("/renovaciones", asincrono(async (_req, res) => {
@@ -33,7 +43,7 @@ rutasAsesor.get("/renovaciones", asincrono(async (_req, res) => {
 }));
 
 rutasAsesor.post("/polizas/:id/renovacion", asincrono(async (req, res) => {
-  await marcarRenovacion(id(req.params.id), req.body);
+  await marcarRenovacion(id(req.params.id), usuarioDe(res).nombre, req.body);
   res.status(204).end();
 }));
 
