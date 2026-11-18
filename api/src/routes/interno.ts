@@ -70,3 +70,8 @@ rutasGerencia.get("/tablero", asincrono(async (req, res) => {
   const ramo = (RAMOS as readonly string[]).includes(String(req.query.ramo)) ? (req.query.ramo as Ramo) : null;
   res.json(await tablero(meses, ramo));
 }));
+
+// Vista de solo lectura de los vencimientos de la cartera, para el aviso y el seguimiento de gerencia (T17).
+rutasGerencia.get("/renovaciones", asincrono(async (_req, res) => {
+  res.json(await renovacionesProximas());
+}));

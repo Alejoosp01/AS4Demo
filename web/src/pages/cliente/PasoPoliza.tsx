@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { decidirRenovacion, nombreDe, radicarPqr, reportarSiniestro } from "../../api/cliente";
 import type { ErrorApi, Errores } from "../../api/http";
 import type { Catalogos, SolicitudVista } from "../../api/tipos";
@@ -7,6 +7,8 @@ import { useAviso } from "../../components/Avisos";
 import { Boton } from "../../components/Boton";
 import { AreaTexto, Campo, Opciones, Selector } from "../../components/Campo";
 import { Icono } from "../../components/Icono";
+import { Modal } from "../../components/Modal";
+import { completarMision } from "../../demo/misiones";
 import { Pasos } from "../../components/Pasos";
 import { fecha, fechaHora, pesos, variacion } from "../../format/formato";
 import "../../components/Tabla.css";
@@ -198,6 +200,74 @@ function Renovacion({ solicitud, catalogos, onActualizada }: Props) {
   );
 }
 
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+/** Días que faltan para el vencimiento, contados desde el inicio del día de hoy. */
+export function diasParaVencer(fechaVencimiento: string): number {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.ceil((new Date(fechaVencimiento).getTime() - hoy.getTime()) / DIA_MS) - 1);
+}
+
+/** Ventana emergente que avisa al cliente que su póliza está por vencer y ya tiene propuesta de renovación. */
+function AvisoVencimiento({ solicitud }: { solicitud: SolicitudVista }) {
+  const r = solicitud.renovacion;
+  const pendiente = Boolean(r && !r.decision && solicitud.poliza);
+  const clave = `as4-aviso-vence-${solicitud.token}`;
+  const [abierto, setAbierto] = useState(false);
+
+  useEffect(() => {
+    if (!pendiente) return;
+    let visto = false;
+    try { visto = sessionStorage.getItem(clave) === "1"; } catch { /* sin almacenamiento */ }
+    if (!visto) setAbierto(true);
+    completarMision("c-renovacion");
+  }, [pendiente, clave]);
+
+  if (!pendiente || !r) return null;
+  const dias = diasParaVencer(solicitud.poliza!.fechaVencimiento);
+  const actual = r.ofertas.find((o) => o.esActual);
+  const masBarata = [...r.ofertas].sort((a, b) => a.primaAnual - b.primaAnual)[0];
+  const ahorro = masBarata ? r.primaActual - masBarata.primaAnual : 0;
+  const cerrar = () => {
+    setAbierto(false);
+    try { sessionStorage.setItem(clave, "1"); } catch { /* sin almacenamiento */ }
+  };
+  const verPropuesta = () => {
+    cerrar();
+    const destino = document.getElementById("titulo-renovacion");
+    destino?.scrollIntoView({ behavior: "smooth", block: "start" });
+    destino?.parentElement?.classList.add("resaltar");
+  };
+  const progreso = Math.min(1, Math.max(0, (30 - dias) / 30));
+
+  return (
+    <Modal abierto={abierto} onCerrar={cerrar} icono="campana" tono={dias <= 7 ? "urgente" : "alerta"} titulo="Su póliza está por vencer"
+      pie={<>
+        <Boton onClick={cerrar}>Más tarde</Boton>
+        <Boton variante="principal" onClick={verPropuesta} data-foco-inicial>Ver mi propuesta de renovación</Boton>
+      </>}>
+      <div className="cuenta-regresiva">
+        <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+          <circle cx="60" cy="60" r="52" className="cuenta-regresiva__fondo" />
+          <circle cx="60" cy="60" r="52" className={`cuenta-regresiva__arco${dias <= 7 ? " cuenta-regresiva__arco--urgente" : ""}`}
+            strokeDasharray={2 * Math.PI * 52} strokeDashoffset={2 * Math.PI * 52 * (1 - progreso)} />
+        </svg>
+        <p className="cuenta-regresiva__numero"><strong>{dias}</strong><span>{dias === 1 ? "día" : "días"}</span></p>
+      </div>
+      <p>
+        Su póliza <strong>{solicitud.poliza!.numero}</strong> vence el <strong>{fecha(solicitud.poliza!.fechaVencimiento)}</strong>.
+        Ya recotizamos su seguro con {r.ofertas.length} aseguradoras y no tiene que llenar nada otra vez.
+      </p>
+      <ul className="lista-ventajas">
+        {actual ? <li>Renovar con {actual.aseguradoraNombre} (su aseguradora actual) cuesta {pesos(actual.primaAnual)} al año ({variacion(r.primaActual, actual.primaAnual)}).</li> : <li>{r.aseguradoraActual} no ofrece renovación este año: elija otra opción.</li>}
+        {ahorro > 0 && masBarata ? <li>La opción más económica es {masBarata.aseguradoraNombre}: ahorraría {pesos(ahorro)} al año.</li> : null}
+        <li>Si no responde en cinco días, su asesor lo llamará para ayudarle.</li>
+      </ul>
+    </Modal>
+  );
+}
+
 /** Etapas 5 a 7 vistas por el cliente: póliza entregada (T14), siniestros y PQR (T15) y renovación (T16). */
 export function PasoPoliza({ solicitud, catalogos, onActualizada }: Props) {
   const [abierto, setAbierto] = useState<"" | "siniestro" | "pqr">("");
@@ -211,6 +281,7 @@ export function PasoPoliza({ solicitud, catalogos, onActualizada }: Props) {
     <>
       <Pasos actual={7} />
       <h1>Su póliza</h1>
+      <AvisoVencimiento solicitud={solicitud} />
       {solicitud.renovacion ? <Renovacion solicitud={solicitud} catalogos={catalogos} onActualizada={onActualizada} /> : null}
 
       <section className="poliza" aria-label="Resumen de la póliza">

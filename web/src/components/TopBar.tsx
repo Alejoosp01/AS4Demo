@@ -1,14 +1,16 @@
+import type { ReactNode } from "react";
 import logo from "../assets/logo-as4.png";
 import "./TopBar.css";
 
 interface TopBarProps {
   usuario?: { nombre: string; rol: "ASESOR" | "GERENTE" };
   onSalir?: () => void;
+  extra?: ReactNode;
 }
 
 const ROL = { ASESOR: "Asesor comercial", GERENTE: "Gerencia" };
 
-export function TopBar({ usuario, onSalir }: TopBarProps) {
+export function TopBar({ usuario, onSalir, extra }: TopBarProps) {
   return (
     <header className="top-bar">
       <span className="top-bar__marca">
@@ -20,6 +22,7 @@ export function TopBar({ usuario, onSalir }: TopBarProps) {
       </span>
       {usuario ? (
         <span className="top-bar__user">
+          {extra}
           <span>
             {usuario.nombre}
             <span className="top-bar__rol">{ROL[usuario.rol]}</span>

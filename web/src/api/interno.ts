@@ -95,5 +95,7 @@ export const cerrarSiniestro = (id: number, datos: unknown) => pedir<SolicitudIn
 export const responderPqr = (id: number, respuesta: string) => pedir<SolicitudInterna>("POST", `/asesor/pqr/${id}/respuesta`, { respuesta });
 export const obtenerRenovaciones = () => pedir<Renovacion[]>("GET", "/asesor/renovaciones");
 
+export const obtenerRenovacionesGerencia = () => pedir<Renovacion[]>("GET", "/gerencia/renovaciones");
+
 export const obtenerTablero = (meses: string, ramo: string) =>
   pedir<Tablero>("GET", `/gerencia/tablero?meses=${encodeURIComponent(meses)}&ramo=${encodeURIComponent(ramo)}`);

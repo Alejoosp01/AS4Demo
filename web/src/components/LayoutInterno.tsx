@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSesion } from "../sesion/Sesion";
 import { Icono, type NombreIcono } from "./Icono";
+import { CampanaRenovaciones, ProveedorAlertaRenovaciones } from "./AlertaRenovaciones";
 import { TopBar } from "./TopBar";
 import "./LayoutInterno.css";
 
@@ -14,6 +15,7 @@ const MENU: Record<"ASESOR" | "GERENTE", { a: string; texto: string; icono: Nomb
   GERENTE: [
     { a: "/gerencia", texto: "Tablero", icono: "tablero", fin: true },
     { a: "/gerencia/imparcialidad", texto: "Imparcialidad", icono: "balanza" },
+    { a: "/gerencia/renovaciones", texto: "Vencimientos", icono: "renovar" },
   ],
 };
 
@@ -29,8 +31,8 @@ export function LayoutInterno({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
-      <TopBar usuario={usuario} onSalir={cerrar} />
+    <ProveedorAlertaRenovaciones usuario={usuario}>
+      <TopBar usuario={usuario} onSalir={cerrar} extra={<CampanaRenovaciones />} />
       <div className="interno">
         <nav className="menu no-imprimir" aria-label="Menú principal">
           <ul>
@@ -52,6 +54,6 @@ export function LayoutInterno({ children }: { children: ReactNode }) {
           <div className="pagina" key={pathname}>{children}</div>
         </main>
       </div>
-    </>
+    </ProveedorAlertaRenovaciones>
   );
 }
