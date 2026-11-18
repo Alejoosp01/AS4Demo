@@ -107,17 +107,21 @@ export function Inicio() {
   return (
     <div className="inicio">
       <div className="inicio__principal">
-        <h1>{saludo()}, {nombre}</h1>
+        <header className="bienvenida">
+          <span className="bienvenida__fecha">{new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</span>
+          <h1>{saludo()}, {nombre}</h1>
+          <p className="inicio__resumen" aria-live="polite">
+            {!resumen ? "Revisando sus tareas…"
+              : resumen.totalPendientes === 0
+                ? "No tiene tareas pendientes. La plataforma le avisará aquí cuando un cliente lo necesite."
+                : `Tiene ${resumen.totalPendientes} ${resumen.totalPendientes === 1 ? "tarea pendiente" : "tareas pendientes"}. Están en orden de prioridad: empiece por la primera.`}
+          </p>
+        </header>
         {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
         {!resumen && !error ? <Esqueleto filas={3} alto={150} /> : null}
 
         {resumen ? (
           <>
-            <p className="inicio__resumen" aria-live="polite">
-              {resumen.totalPendientes === 0
-                ? "No tiene tareas pendientes. La plataforma le avisará aquí cuando un cliente lo necesite."
-                : `Tiene ${resumen.totalPendientes} ${resumen.totalPendientes === 1 ? "tarea pendiente" : "tareas pendientes"}. Están en orden de prioridad: empiece por la primera.`}
-            </p>
 
             <div className="indicadores">
               {resumen.tareas.map((t, i) => <Indicador key={t.codigo} tarea={t} orden={i} />)}

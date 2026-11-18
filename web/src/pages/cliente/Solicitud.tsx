@@ -5,6 +5,7 @@ import type { Catalogos, SolicitudVista } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Pasos } from "../../components/Pasos";
 import { completarMision, informarEtapaCliente } from "../../demo/misiones";
+import { celebrar } from "../../efectos";
 import { PasoAceptacion } from "./PasoAceptacion";
 import { PasoPago } from "./PasoPago";
 import { PasoPoliza } from "./PasoPoliza";
@@ -42,7 +43,7 @@ export function Solicitud() {
     if (etapa === 3) completarMision("c-comparativo");
     // Firmar y pagar cuentan solo cuando el cliente da el paso en esta visita, no al abrir una póliza existente.
     if (etapa === 5 && etapaAnterior.current === 4) completarMision("c-firma");
-    if (etapa === 7 && etapaAnterior.current === 5) completarMision("c-poliza");
+    if (etapa === 7 && etapaAnterior.current === 5) { completarMision("c-poliza"); celebrar(); }
     if (etapa !== null) etapaAnterior.current = etapa;
   }, [etapa]);
   useEffect(() => () => informarEtapaCliente(null), []);

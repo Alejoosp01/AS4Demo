@@ -27,7 +27,7 @@ function LayoutCliente({ children }: { children: ReactNode }) {
           Está viendo la página del cliente como {usuario.nombre}. <Link to={inicioDe(usuario)}>Volver a mi trabajo</Link>
         </p>
       ) : null}
-      <main className="cliente pagina">{children}</main>
+      <div className="fondo-cliente"><main className="cliente pagina">{children}</main></div>
     </>
   );
 }

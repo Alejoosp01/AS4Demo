@@ -6,11 +6,21 @@ import type { Catalogos } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { Campo, Casilla, Opciones, Selector } from "../../components/Campo";
+import type { NombreIcono } from "../../components/Icono";
 import { Pasos } from "../../components/Pasos";
 import { BarraDemo } from "../../demo/BarraDemo";
 import { useFocoEnError } from "./useFocoEnError";
 
 const VACIO = { nombre: "", tipoDocumento: "CC", numeroDocumento: "", correo: "", telefono: "", ciudad: "", ramo: "" };
+
+const ICONOS_RAMO: Record<string, NombreIcono> = { AUTOS: "auto", SALUD: "corazon", VIDA: "pulso", HOGAR: "inicio", PYMES: "edificio" };
+const DETALLE_RAMO: Record<string, string> = {
+  AUTOS: "Su carro o moto",
+  SALUD: "Usted y su familia",
+  VIDA: "Protección para los suyos",
+  HOGAR: "Casa o apartamento",
+  PYMES: "Su empresa y su responsabilidad civil",
+};
 
 // Ramos que piden datos de salud: llevan una autorización aparte.
 const CON_DATOS_SENSIBLES = ["SALUD", "VIDA"];
@@ -99,7 +109,7 @@ export function PasoSolicitud() {
           <fieldset className="seccion-formulario">
             <legend>Seguro que necesita</legend>
             <Opciones id="ramo" etiqueta="Ramo" valor={valores.ramo} opciones={juridica ? catalogos.ramos.filter((r) => r.codigo === "PYMES") : catalogos.ramos}
-              onCambiar={cambiar("ramo")} error={errores.ramo}
+              onCambiar={cambiar("ramo")} error={errores.ramo} iconos={ICONOS_RAMO} detalles={DETALLE_RAMO}
               ayuda={juridica ? "Con NIT se cotiza el seguro para empresas." : "Solo le pediremos los datos que aplican al ramo que elija."} />
           </fieldset>
 

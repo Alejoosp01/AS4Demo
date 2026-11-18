@@ -1,0 +1,21 @@
+.confeti {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.confeti span {
+  position: absolute;
+  top: -20px;
+  box-shadow: 0 0 0 1px rgba(11, 31, 77, 0.06);
+  animation: caer linear forwards;
+}
+
+@keyframes caer {
+  to {
+    transform: translate(var(--x), 105vh) rotate(var(--giro));
+    opacity: 0.9;
+  }
+}

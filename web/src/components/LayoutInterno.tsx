@@ -35,6 +35,7 @@ export function LayoutInterno({ children }: { children: ReactNode }) {
       <TopBar usuario={usuario} onSalir={cerrar} extra={<CampanaRenovaciones />} />
       <div className="interno">
         <nav className="menu no-imprimir" aria-label="Menú principal">
+          <p className="menu__titulo">{usuario.rol === "GERENTE" ? "Gerencia" : "Asesoría"}</p>
           <ul>
             {MENU[usuario.rol].map((item) => (
               <li key={item.a}>

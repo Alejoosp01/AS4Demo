@@ -1,36 +1,45 @@
 :root {
-  /* Paleta del informe del proyecto: títulos azul oscuro, filete azul y tablas con encabezado azul claro. */
-  --color-navy: #1f3864;
-  --color-blue: #2e74b5;
-  --color-blue-dark: #1f4d78;
-  --color-blue-100: #bdd6ee;
-  --color-blue-50: #deeaf6;
-  --color-green-50: #e2efda;
-  --color-green: #2f6b3a;
-  --color-amber: #8a5a00;
-  --color-amber-50: #fff2cc;
-  /* Rojo del logotipo de AS4: solo para errores y urgencias. */
-  --color-red: #c0392b;
-  --color-red-dark: #a02b20;
-  --color-red-50: #fbe5e1;
+  /* Paleta AS4: azul profundo de la marca con el rojo del logotipo como acento. */
+  --color-navy: #0b1f4d;
+  --color-blue: #1f5fe0;
+  --color-blue-dark: #153f9e;
+  --color-blue-100: #c9dafb;
+  --color-blue-50: #eaf1fe;
+  --color-sky: #4fa3ff;
+  --color-green-50: #e3f6ea;
+  --color-green: #1d7a46;
+  --color-amber: #9a5b00;
+  --color-amber-50: #fff3d6;
+  /* Rojo del logotipo de AS4: acento de la marca, urgencias y errores. */
+  --color-red: #e3263b;
+  --color-red-dark: #b5172a;
+  --color-red-50: #fde8ea;
   --color-white: #ffffff;
-  --color-gray-50: #f2f2f2;
-  --color-gray-100: #e7e9ee;
-  --color-gray-200: #d0d5dd;
-  --color-gray-400: #8a90a0;
-  --color-gray-600: #595959;
-  --color-text: #1c2434;
+  --color-fondo: #f3f6fc;
+  --color-gray-50: #f5f7fb;
+  --color-gray-100: #e8ecf4;
+  --color-gray-200: #d5dbe7;
+  --color-gray-400: #8b93a7;
+  --color-gray-600: #566078;
+  --color-text: #17213a;
 
-  --font-titulos: "Times New Roman", Times, Georgia, serif;
-  --font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  --degradado-marca: linear-gradient(120deg, #0b1f4d 0%, #1f5fe0 55%, #e3263b 120%);
+  --degradado-boton: linear-gradient(135deg, #2f6df0, #153f9e);
+  --degradado-acento: linear-gradient(135deg, #ff4d5e, #c8162b);
+  --degradado-linea: linear-gradient(90deg, #1f5fe0, #4fa3ff 50%, #e3263b);
+
+  --font-titulos: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-size-base: 15px;
   --font-size-small: 14px;
-  --font-size-title: 26px;
+  --font-size-title: 30px;
   --font-size-subtitle: 20px;
 
-  --radius: 8px;
-  --sombra: 0 1px 3px rgba(31, 56, 100, 0.1);
-  --sombra-alta: 0 8px 24px rgba(31, 56, 100, 0.16);
+  --radius: 12px;
+  --sombra: 0 1px 2px rgba(11, 31, 77, 0.06), 0 4px 14px rgba(11, 31, 77, 0.06);
+  --sombra-alta: 0 12px 32px rgba(11, 31, 77, 0.16);
+  --sombra-azul: 0 8px 22px rgba(31, 95, 224, 0.32);
+  --sombra-roja: 0 8px 22px rgba(227, 38, 59, 0.3);
   --border: 1px solid var(--color-gray-200);
 
   --space-1: 4px;
@@ -53,15 +62,38 @@ body {
   font-size: var(--font-size-base);
   line-height: 1.45;
   color: var(--color-text);
-  background: var(--color-white);
+  background: var(--color-fondo);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
   font-family: var(--font-titulos);
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: -0.015em;
   color: var(--color-navy);
+}
+
+/* Subrayado de marca bajo el título principal de cada página. */
+h1::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 4px;
+  margin-top: 10px;
+  background: var(--degradado-linea);
+  border-radius: 2px;
+  animation: subrayado 0.6s ease-out both;
+}
+
+@keyframes subrayado {
+  from { width: 0; }
+}
+
+::selection {
+  color: var(--color-white);
+  background: var(--color-blue);
 }
 
 h1 {

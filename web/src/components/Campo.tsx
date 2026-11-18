@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
+import { Icono, type NombreIcono } from "./Icono";
 import "./Campo.css";
 
 interface Base {
@@ -62,12 +63,15 @@ interface OpcionesProps extends Base {
   valor: string;
   opciones: { codigo: string; nombre: string }[];
   onCambiar: (valor: string) => void;
+  /** Con íconos, las opciones se muestran como tarjetas grandes. */
+  iconos?: Record<string, NombreIcono>;
+  detalles?: Record<string, string>;
 }
 
 /** Grupo de botones de opción. El id se pone en la primera opción para poder llevar el foco al error. */
-export function Opciones({ id, etiqueta, error, ayuda, valor, opciones, onCambiar }: OpcionesProps) {
+export function Opciones({ id, etiqueta, error, ayuda, valor, opciones, onCambiar, iconos, detalles }: OpcionesProps) {
   return (
-    <fieldset className={`grupo-opciones${error ? " grupo-opciones--error" : ""}`} aria-describedby={descritoPor(id, ayuda, error)}>
+    <fieldset className={`grupo-opciones${iconos ? " grupo-opciones--tarjetas" : ""}${error ? " grupo-opciones--error" : ""}`} aria-describedby={descritoPor(id, ayuda, error)}>
       <legend>{etiqueta}</legend>
       {ayuda ? <p id={`${id}-ayuda`} className="campo__ayuda">{ayuda}</p> : null}
       <div className="grupo-opciones__lista">
@@ -80,8 +84,10 @@ export function Opciones({ id, etiqueta, error, ayuda, valor, opciones, onCambia
               value={o.codigo}
               checked={valor === o.codigo}
               onChange={() => onCambiar(o.codigo)}
+              aria-labelledby={detalles ? `${id}-${o.codigo}-nombre` : undefined}
             />
-            <span>{o.nombre}</span>
+            {iconos?.[o.codigo] ? <span className="opcion__icono" aria-hidden="true"><Icono nombre={iconos[o.codigo]} tamano={24} /></span> : null}
+            <span><span id={`${id}-${o.codigo}-nombre`}>{o.nombre}</span>{detalles?.[o.codigo] ? <span className="opcion__detalle">{detalles[o.codigo]}</span> : null}</span>
           </label>
         ))}
       </div>

@@ -57,7 +57,7 @@ El orden del comparativo es: mayor puntaje de cobertura y, a igual cobertura, me
 
 El seguimiento (T07 y T15) corre al arrancar el servicio y luego cada 10 minutos. Los días hábiles son de lunes a viernes; no se descuentan festivos.
 
-La interfaz usa la paleta y el logotipo del informe del proyecto: títulos en azul oscuro con tipografía serif, filete azul y tablas con encabezado azul claro (`web/src/styles/variables.css`).
+La interfaz usa una paleta azul y roja tomada del logotipo de AS4 (`web/src/styles/variables.css`): barra superior azul profundo con filete animado del azul al rojo, formularios en tarjetas numeradas, ramos como tarjetas con ícono, opciones tipo píldora, pasos con riel de avance, comparativo del cliente en tarjetas con medidor de cobertura, cabeceras de bienvenida con degradado y gráficas animadas. Los botones muestran una onda al pulsarlos y la emisión de la póliza o la renovación se celebran con confeti (`web/src/efectos.ts`). Las animaciones se desactivan si el sistema pide reducir el movimiento.
 
 ## Cómo levantarlo
 

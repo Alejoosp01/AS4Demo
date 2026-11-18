@@ -1,6 +1,10 @@
 .tabla-contenedor {
   overflow-x: auto;
   margin-bottom: var(--space-4);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-100);
+  border-radius: 16px;
+  box-shadow: var(--sombra);
 }
 
 .tabla {
@@ -11,18 +15,20 @@
 
 .tabla th,
 .tabla td {
-  padding: var(--space-2) var(--space-3);
+  padding: 12px var(--space-4);
   text-align: left;
   vertical-align: top;
-  border-bottom: var(--border);
+  border-bottom: 1px solid var(--color-gray-100);
 }
 
 .tabla thead th {
-  color: var(--color-navy);
-  background: var(--color-blue-50);
-  border-top: 1px solid var(--color-blue-100);
-  border-bottom: 1px solid var(--color-blue-100);
-  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-gray-600);
+  background: var(--color-gray-50);
+  border-bottom: 2px solid var(--color-blue-100);
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -30,8 +36,16 @@
   white-space: nowrap;
 }
 
+.tabla tbody tr {
+  transition: background-color 0.15s ease;
+}
+
 .tabla tbody tr:hover td {
-  background: #f6f9fd;
+  background: var(--color-blue-50);
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .tabla .numero {
@@ -103,5 +117,5 @@
 }
 
 .tabla--filas-enlace tbody tr:hover td:first-child {
-  box-shadow: inset 3px 0 0 var(--color-blue);
+  box-shadow: inset 4px 0 0 var(--color-red);
 }

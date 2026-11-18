@@ -9,6 +9,7 @@ import { AreaTexto, Campo, Opciones, Selector } from "../../components/Campo";
 import { Icono } from "../../components/Icono";
 import { Modal } from "../../components/Modal";
 import { completarMision } from "../../demo/misiones";
+import { celebrar } from "../../efectos";
 import { Pasos } from "../../components/Pasos";
 import { fecha, fechaHora, pesos, variacion } from "../../format/formato";
 import "../../components/Tabla.css";
@@ -123,7 +124,7 @@ function Renovacion({ solicitud, catalogos, onActualizada }: Props) {
   const [aseguradora, setAseguradora] = useState("");
   const [noRenueva, setNoRenueva] = useState(false);
   const [motivo, setMotivo] = useState("");
-  const { errores, mensaje, enviando, enviar } = useEnvio(onActualizada, () => undefined, "Su decisión de renovación quedó registrada.");
+  const { errores, mensaje, enviando, enviar } = useEnvio(onActualizada, () => celebrar(60), "Su decisión de renovación quedó registrada.");
 
   if (r.decision) {
     return (
