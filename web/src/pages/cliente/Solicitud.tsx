@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { nombreDe, obtenerCatalogos, obtenerSolicitud } from "../../api/cliente";
 import type { Catalogos, SolicitudVista } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Pasos } from "../../components/Pasos";
+import { completarMision, informarEtapaCliente } from "../../demo/misiones";
 import { PasoAceptacion } from "./PasoAceptacion";
 import { PasoPago } from "./PasoPago";
 import { PasoPoliza } from "./PasoPoliza";
@@ -26,6 +27,25 @@ export function Solicitud() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [solicitud?.estado, solicitud?.aceptacion?.ofertaId, solicitud?.aceptacion?.suscripcion?.condicionesAceptadasEn, modificando]);
+
+  // Informa a la guía de la demo en qué etapa está el cliente y marca las misiones correspondientes.
+  const conAceptacion = Boolean(solicitud?.aceptacion && !solicitud.aceptacion.confirmadaEn);
+  const etapa = !solicitud ? null
+    : solicitud.estado === "NUEVA" || modificando ? 2
+    : solicitud.estado === "ACEPTADA" ? 5
+    : solicitud.estado === "EMITIDA" ? 7
+    : solicitud.estado === "COTIZADA" || solicitud.estado === "ASESORADA" ? (conAceptacion ? 4 : 3)
+    : null;
+  const etapaAnterior = useRef<number | null>(null);
+  useEffect(() => {
+    informarEtapaCliente(etapa);
+    if (etapa === 3) completarMision("c-comparativo");
+    // Firmar y pagar cuentan solo cuando el cliente da el paso en esta visita, no al abrir una póliza existente.
+    if (etapa === 5 && etapaAnterior.current === 4) completarMision("c-firma");
+    if (etapa === 7 && etapaAnterior.current === 5) completarMision("c-poliza");
+    if (etapa !== null) etapaAnterior.current = etapa;
+  }, [etapa]);
+  useEffect(() => () => informarEtapaCliente(null), []);
 
   if (error) return <Aviso tipo="error"><p>{error}</p></Aviso>;
   if (!solicitud || !catalogos) return <p className="texto-secundario">Cargando la solicitud…</p>;

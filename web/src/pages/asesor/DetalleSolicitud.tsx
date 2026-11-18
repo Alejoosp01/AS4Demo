@@ -16,6 +16,7 @@ import { Icono } from "../../components/Icono";
 import { useSesion } from "../../sesion/Sesion";
 import { aNumero, conMiles, fecha, fechaHora, hace, pesos } from "../../format/formato";
 import { datosRiesgo, datosSarlaft } from "./datosRiesgo";
+import { completarMision } from "../../demo/misiones";
 import "./Asesor.css";
 
 const CRITERIO_MINIMO = 30;
@@ -143,6 +144,7 @@ function FormularioAsesoria({ solicitud, onGuardada }: { solicitud: SolicitudInt
     setMensaje("");
     try {
       onGuardada(await guardarAsesoria(solicitud.id, { ofertaRecomendadaId: oferta ?? undefined, criterio }));
+      completarMision("a-asesoria");
     } catch (error) {
       const e = error as ErrorApi;
       setErrores(e.errores ?? {});

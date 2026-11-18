@@ -18,10 +18,24 @@ El demo sigue el flujo de la matriz de procesos TO-BE (27 tareas, T01 a T17). Ca
 | 6. Siniestros y PQR (T15–T16) | Cliente y asesor | El cliente reporta desde su póliza con la lista de documentos de su ramo. El asesor radica, acompaña y cierra con resultado y valor pagado. |
 | 7. Renovación y retroalimentación (T15–T17) | Plataforma y cliente | 30 días antes del vencimiento la plataforma recotiza y envía la propuesta; el cliente renueva o no desde su enlace. Si pasan 5 días sin respuesta, el asesor lo llama. Todo alimenta el tablero de gerencia. |
 
-Accesos: el cliente entra por enlace, sin iniciar sesión (`/solicitud`); asesor y gerencia por `/ingreso`. Toda la navegación ocurre en la misma pestaña.
+Accesos: la demo arranca en el **centro de la demo** (`/demo`, también en `/`); el cliente entra por enlace, sin iniciar sesión (`/solicitud`); asesor y gerencia por `/ingreso` o con un clic desde `/demo`. Toda la navegación ocurre en la misma pestaña.
+
+## Recorrido interactivo de la demo
+
+Pensado para presentar el proyecto y para que cualquier persona lo explore sola:
+
+- **Centro de la demo (`/demo`).** Mapa interactivo del flujo completo (7 etapas × 5 actores: cliente, plataforma, asesor, aseguradora y gerencia) que se puede reproducir como animación o recorrer etapa por etapa; cada etapa explica qué hace cada actor y tiene un botón «Probar esta etapa» que entra con el rol adecuado y abre la pantalla. Incluye la entrada con un clic para cada rol, cifras animadas y un juego de preguntas «¿Quién lo hace?».
+- **Misiones por rol.** 14 retos (5 de cliente, 5 de asesor y 4 de gerencia) que se marcan solos al recorrer la aplicación y muestran un aviso de «Misión cumplida». El avance queda en el navegador y se puede reiniciar.
+- **Guía flotante.** Botón en la esquina inferior izquierda (pestaña lateral en celular) que explica la pantalla actual: rol, etapa y tareas TO-BE, ubicación en el mapa del flujo, qué probar y las misiones del rol.
+- **Ventanas emergentes de renovaciones por vencer.**
+  - *Asesor:* al entrar ve las pólizas que vencen en 30 días, clasificadas por urgencia (7 días o menos, 8 a 15), las que llevan 5 días sin respuesta y la prima en juego.
+  - *Gerencia:* el mismo aviso con el resumen de la cartera, y la nueva página **Vencimientos** (`/gerencia/renovaciones`, de solo consulta) con línea de tiempo interactiva y filtros.
+  - *Cliente:* al abrir una póliza con propuesta pendiente aparece una cuenta regresiva con los días que faltan, el costo de renovar con su aseguradora y el posible ahorro; lleva directo a la propuesta.
+  - Aparecen una vez por sesión del navegador; la campana con contador de la barra superior vuelve a abrir el aviso.
+- **Datos de ejemplo con un clic.** En la solicitud, el SARLAFT y los datos de cada ramo, el botón «Llenar con datos de ejemplo» completa el formulario con un cliente ficticio válido para avanzar rápido.
 
 - **Asesor.** *Mi trabajo* muestra solo las tareas que el TO-BE deja a su cargo, en orden de prioridad: acompañar siniestros y PQR (T16), registrar asesorías (T09), contactar clientes detenidos (T07) y llamar por renovaciones sin respuesta (T15).
-- **Gerencia.** Tablero con las seis variables por ramo y por mes, y control de imparcialidad con aviso cuando una aseguradora supera el 40 % de las ventas.
+- **Gerencia.** Tablero con las seis variables por ramo y por mes, control de imparcialidad con aviso cuando una aseguradora supera el 40 % de las ventas y vencimientos de la cartera en los próximos 30 días.
 
 El orden del comparativo es: mayor puntaje de cobertura y, a igual cobertura, menor prima. **La comisión de la agencia nunca interviene en el orden** ni sale en las respuestas que ven el cliente y el asesor.
 
@@ -55,6 +69,7 @@ docker compose up --build
 
 La aplicación queda en http://localhost:8080:
 
+- Centro de la demo: http://localhost:8080/demo
 - Cliente: http://localhost:8080/solicitud
 - Asesor y gerencia: http://localhost:8080/ingreso
 
@@ -120,7 +135,7 @@ Sin Node instalado, desde PowerShell en la carpeta del proyecto:
 docker run --rm -v "${PWD}\api:/app" -v as4_api_node_modules:/app/node_modules -w /app node:20 sh -c "npm ci && npx prisma generate && npm run typecheck && npm test"
 ```
 
-**Playwright (web):** corre contra la aplicación levantada con Docker, en escritorio y en celular. Cubre el recorrido del cliente por las etapas 1 a 6 en Autos (hasta reportar un siniestro), «No me interesa», el inicio y la bandeja del asesor, la asesoría con criterio obligatorio, los campos pendientes, la emisión sin intervención del asesor, el cierre de un siniestro, las renovaciones y el tablero.
+**Playwright (web):** corre contra la aplicación levantada con Docker, en escritorio y en celular. Cubre el centro de la demo y las ventanas emergentes de renovación de los tres roles, el recorrido del cliente por las etapas 1 a 6 en Autos (hasta reportar un siniestro), «No me interesa», el inicio y la bandeja del asesor, la asesoría con criterio obligatorio, los campos pendientes, la emisión sin intervención del asesor, el cierre de un siniestro, las renovaciones y el tablero.
 
 ```bash
 cd web

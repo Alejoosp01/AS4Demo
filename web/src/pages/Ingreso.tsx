@@ -170,6 +170,9 @@ export function Ingreso() {
           <p className="ingreso__cliente">
             <Icono nombre="escudo" tamano={18} /> ¿Necesita un seguro? <Link to="/solicitud">Solicite una cotización</Link>
           </p>
+          <p className="ingreso__cliente">
+            <Icono nombre="brujula" tamano={18} /> ¿Primera vez? <Link to="/demo">Haga el recorrido guiado de la demo</Link>
+          </p>
         </div>
       </main>
     </div>

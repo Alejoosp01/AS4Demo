@@ -6,6 +6,7 @@ import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { Campo, Casilla, Opciones, SI_NO, Selector } from "../../components/Campo";
 import { Pasos } from "../../components/Pasos";
+import { BarraDemo } from "../../demo/BarraDemo";
 import { aNumero, conMiles } from "../../format/formato";
 import { useFocoEnError } from "./useFocoEnError";
 
@@ -178,6 +179,23 @@ export function PasoFormulario({ solicitud, catalogos, onGuardada, onCancelar }:
     }
   }
 
+  // Demostración: datos ficticios válidos para el SARLAFT y para cada ramo.
+  function llenarEjemplo() {
+    const ejemplo: Record<Ramo, Valores> = {
+      AUTOS: { placa: "DEM" + String(100 + Math.floor(Math.random() * 900)), modelo: "2021", ciudad: solicitud.tomador.ciudad ?? "bogota", uso: "particular" },
+      SALUD: { preexistencias: "no" },
+      VIDA: { edad: "35", ocupacion: "empleado", valorAsegurado: conMiles("150000000") },
+      HOGAR: { direccion: "Calle 100 # 15-20 apto 501", tipoInmueble: "apartamento", valorContenidos: conMiles("60000000") },
+      PYMES: { nit: "900123456-8", actividad: "comercio", ingresosAnuales: "850000000", numeroEmpleados: "12" },
+    };
+    if (ramo === "SALUD") setEdades(["34", "32", "6"]);
+    setDatos((d) => ({ ...d, ...ejemplo[ramo] }));
+    setSarlaft({ ocupacion: "Empleada de oficina", ingresosMensuales: conMiles("6500000"), egresosMensuales: conMiles("2800000"), origenFondos: "Salario", personaExpuestaPoliticamente: "no" });
+    setDeclara(true);
+    setErrores({});
+    setMensaje("");
+  }
+
   const nombreRamo = catalogos.ramos.find((r) => r.codigo === ramo)?.nombre ?? ramo;
 
   return (
@@ -206,6 +224,7 @@ export function PasoFormulario({ solicitud, catalogos, onGuardada, onCancelar }:
           <p><Boton variante="enlace" onClick={() => setSoloPendientes(false)}>Ver y corregir todos mis datos</Boton></p>
         </Aviso>
       ) : null}
+      <BarraDemo texto={enSarlaft ? "Demostración: complete el SARLAFT con datos ficticios." : "Demostración: complete los datos del seguro con valores válidos."} onLlenar={llenarEjemplo} />
       {mensaje ? <Aviso tipo="error"><p>{mensaje}</p></Aviso> : null}
       {guardado ? <div role="status"><Aviso><p>{guardado}</p></Aviso></div> : null}
       <form onSubmit={enviar} noValidate>

@@ -11,6 +11,14 @@ export async function ingresar(page: Page, usuario: { correo: string; clave: str
   await page.getByLabel("Contraseña").fill(usuario.clave);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page.getByRole("button", { name: "Salir" })).toBeVisible();
+  await cerrarAvisoRenovaciones(page);
+}
+
+/** Al entrar aparece la ventana de pólizas por vencer (una vez por sesión); se cierra para seguir. */
+export async function cerrarAvisoRenovaciones(page: Page) {
+  const aviso = page.getByRole("dialog", { name: /vencen? en los próximos 30 días/ });
+  await aviso.waitFor({ state: "visible", timeout: 3000 }).catch(() => undefined);
+  if (await aviso.isVisible()) await aviso.getByRole("button", { name: "Recordármelo después" }).click();
 }
 
 const SARLAFT = {

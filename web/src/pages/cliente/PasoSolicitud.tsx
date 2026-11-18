@@ -7,6 +7,7 @@ import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { Campo, Casilla, Opciones, Selector } from "../../components/Campo";
 import { Pasos } from "../../components/Pasos";
+import { BarraDemo } from "../../demo/BarraDemo";
 import { useFocoEnError } from "./useFocoEnError";
 
 const VACIO = { nombre: "", tipoDocumento: "CC", numeroDocumento: "", correo: "", telefono: "", ciudad: "", ramo: "" };
@@ -39,6 +40,14 @@ export function PasoSolicitud() {
     setValores((v) => ({ ...v, tipoDocumento: tipo, ramo: tipo === "NIT" ? "PYMES" : v.ramo }));
   }
 
+  // Demostración: un cliente ficticio de Autos con documento aleatorio para no repetir solicitudes.
+  function llenarEjemplo() {
+    const documento = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
+    setValores({ nombre: "Valentina Gómez Ruiz", tipoDocumento: "CC", numeroDocumento: documento, correo: "valentina.gomez@correo.example", telefono: "3104567890", ciudad: "bogota", ramo: "AUTOS" });
+    setAutoriza(true);
+    setErrores({});
+  }
+
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setEnviando(true);
@@ -63,6 +72,7 @@ export function PasoSolicitud() {
         Escriba sus datos de contacto y elija el seguro que necesita. Con esta información consultamos a las aseguradoras y le
         mostramos un comparativo.
       </p>
+      <BarraDemo texto="Demostración: complete el formulario con un cliente ficticio." onLlenar={llenarEjemplo} />
       {mensaje ? <Aviso tipo="error"><p>{mensaje}</p></Aviso> : null}
       {catalogos ? (
         <form onSubmit={enviar} noValidate>

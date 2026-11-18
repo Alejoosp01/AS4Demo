@@ -7,8 +7,11 @@ import { Inicio } from "./pages/asesor/Inicio";
 import { Renovaciones } from "./pages/asesor/Renovaciones";
 import { PasoSolicitud } from "./pages/cliente/PasoSolicitud";
 import { Solicitud } from "./pages/cliente/Solicitud";
+import { CentroDemo } from "./demo/CentroDemo";
+import { GuiaFlotante } from "./demo/GuiaFlotante";
 import { Imparcialidad } from "./pages/gerencia/Imparcialidad";
 import { Tablero } from "./pages/gerencia/Tablero";
+import { Vencimientos } from "./pages/gerencia/Vencimientos";
 import { Ingreso } from "./pages/Ingreso";
 import { ProveedorSesion, RutaProtegida, inicioDe, useSesion } from "./sesion/Sesion";
 import "./pages/cliente/Cliente.css";
@@ -33,7 +36,8 @@ export function App() {
   return (
     <ProveedorSesion>
       <Routes>
-        <Route path="/" element={<Navigate to="/ingreso" replace />} />
+        <Route path="/" element={<Navigate to="/demo" replace />} />
+        <Route path="/demo" element={<CentroDemo />} />
         <Route path="/ingreso" element={<Ingreso />} />
         <Route path="/solicitud" element={<LayoutCliente><PasoSolicitud /></LayoutCliente>} />
         <Route path="/solicitud/:token" element={<LayoutCliente><Solicitud /></LayoutCliente>} />
@@ -43,8 +47,10 @@ export function App() {
         <Route path="/asesor/renovaciones" element={<RutaProtegida rol="ASESOR"><Renovaciones /></RutaProtegida>} />
         <Route path="/gerencia" element={<RutaProtegida rol="GERENTE"><Tablero /></RutaProtegida>} />
         <Route path="/gerencia/imparcialidad" element={<RutaProtegida rol="GERENTE"><Imparcialidad /></RutaProtegida>} />
+        <Route path="/gerencia/renovaciones" element={<RutaProtegida rol="GERENTE"><Vencimientos /></RutaProtegida>} />
         <Route path="*" element={<LayoutCliente><h1>Página no encontrada</h1><p><a href="/ingreso">Ir al inicio</a></p></LayoutCliente>} />
       </Routes>
+      <GuiaFlotante />
     </ProveedorSesion>
   );
 }
