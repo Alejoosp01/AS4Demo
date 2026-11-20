@@ -1,22 +1,33 @@
 import type { ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { TopBar } from "./components/TopBar";
 import { Bandeja } from "./pages/asesor/Bandeja";
 import { DetalleSolicitud } from "./pages/asesor/DetalleSolicitud";
+import { Inicio } from "./pages/asesor/Inicio";
 import { Renovaciones } from "./pages/asesor/Renovaciones";
 import { PasoSolicitud } from "./pages/cliente/PasoSolicitud";
 import { Solicitud } from "./pages/cliente/Solicitud";
+import { CentroDemo } from "./demo/CentroDemo";
+import { GuiaFlotante } from "./demo/GuiaFlotante";
 import { Imparcialidad } from "./pages/gerencia/Imparcialidad";
 import { Tablero } from "./pages/gerencia/Tablero";
+import { Vencimientos } from "./pages/gerencia/Vencimientos";
 import { Ingreso } from "./pages/Ingreso";
-import { ProveedorSesion, RutaProtegida } from "./sesion/Sesion";
+import { ProveedorSesion, RutaProtegida, inicioDe, useSesion } from "./sesion/Sesion";
 import "./pages/cliente/Cliente.css";
 
 function LayoutCliente({ children }: { children: ReactNode }) {
+  const { usuario } = useSesion();
   return (
     <>
       <TopBar />
-      <main className="cliente">{children}</main>
+      {/* Un asesor que diligencia con el cliente vuelve a su trabajo sin abrir otra pestaña. */}
+      {usuario ? (
+        <p className="barra-volver no-imprimir">
+          Está viendo la página del cliente como {usuario.nombre}. <Link to={inicioDe(usuario)}>Volver a mi trabajo</Link>
+        </p>
+      ) : null}
+      <div className="fondo-cliente"><main className="cliente pagina">{children}</main></div>
     </>
   );
 }
@@ -25,17 +36,21 @@ export function App() {
   return (
     <ProveedorSesion>
       <Routes>
-        <Route path="/" element={<Navigate to="/ingreso" replace />} />
+        <Route path="/" element={<Navigate to="/demo" replace />} />
+        <Route path="/demo" element={<CentroDemo />} />
         <Route path="/ingreso" element={<Ingreso />} />
         <Route path="/solicitud" element={<LayoutCliente><PasoSolicitud /></LayoutCliente>} />
         <Route path="/solicitud/:token" element={<LayoutCliente><Solicitud /></LayoutCliente>} />
-        <Route path="/asesor" element={<RutaProtegida rol="ASESOR"><Bandeja /></RutaProtegida>} />
+        <Route path="/asesor" element={<RutaProtegida rol="ASESOR"><Inicio /></RutaProtegida>} />
+        <Route path="/asesor/solicitudes" element={<RutaProtegida rol="ASESOR"><Bandeja /></RutaProtegida>} />
         <Route path="/asesor/solicitudes/:id" element={<RutaProtegida rol="ASESOR"><DetalleSolicitud /></RutaProtegida>} />
         <Route path="/asesor/renovaciones" element={<RutaProtegida rol="ASESOR"><Renovaciones /></RutaProtegida>} />
         <Route path="/gerencia" element={<RutaProtegida rol="GERENTE"><Tablero /></RutaProtegida>} />
         <Route path="/gerencia/imparcialidad" element={<RutaProtegida rol="GERENTE"><Imparcialidad /></RutaProtegida>} />
+        <Route path="/gerencia/renovaciones" element={<RutaProtegida rol="GERENTE"><Vencimientos /></RutaProtegida>} />
         <Route path="*" element={<LayoutCliente><h1>Página no encontrada</h1><p><a href="/ingreso">Ir al inicio</a></p></LayoutCliente>} />
       </Routes>
+      <GuiaFlotante />
     </ProveedorSesion>
   );
 }

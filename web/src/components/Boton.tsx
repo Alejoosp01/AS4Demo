@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import "./Boton.css";
 
 interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variante?: "principal" | "secundario" | "enlace";
+  variante?: "principal" | "secundario" | "enlace" | "acento";
 }
 
 export function Boton({ variante = "secundario", className, type = "button", ...props }: BotonProps) {

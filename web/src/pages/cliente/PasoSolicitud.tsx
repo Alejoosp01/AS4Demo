@@ -6,16 +6,31 @@ import type { Catalogos } from "../../api/tipos";
 import { Aviso } from "../../components/Aviso";
 import { Boton } from "../../components/Boton";
 import { Campo, Casilla, Opciones, Selector } from "../../components/Campo";
+import type { NombreIcono } from "../../components/Icono";
 import { Pasos } from "../../components/Pasos";
+import { BarraDemo } from "../../demo/BarraDemo";
 import { useFocoEnError } from "./useFocoEnError";
 
-const VACIO = { nombre: "", tipoDocumento: "CC", numeroDocumento: "", correo: "", telefono: "", ramo: "" };
+const VACIO = { nombre: "", tipoDocumento: "CC", numeroDocumento: "", correo: "", telefono: "", ciudad: "", ramo: "" };
+
+const ICONOS_RAMO: Record<string, NombreIcono> = { AUTOS: "auto", SALUD: "corazon", VIDA: "pulso", HOGAR: "inicio", PYMES: "edificio" };
+const DETALLE_RAMO: Record<string, string> = {
+  AUTOS: "Su carro o moto",
+  SALUD: "Usted y su familia",
+  VIDA: "Protección para los suyos",
+  HOGAR: "Casa o apartamento",
+  PYMES: "Su empresa y su responsabilidad civil",
+};
+
+// Ramos que piden datos de salud: llevan una autorización aparte.
+const CON_DATOS_SENSIBLES = ["SALUD", "VIDA"];
 
 export function PasoSolicitud() {
   const navegar = useNavigate();
   const [catalogos, setCatalogos] = useState<Catalogos | null>(null);
   const [valores, setValores] = useState(VACIO);
   const [autoriza, setAutoriza] = useState(false);
+  const [autorizaSensibles, setAutorizaSensibles] = useState(false);
   const [errores, setErrores] = useState<Errores>({});
   const [mensaje, setMensaje] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -27,13 +42,28 @@ export function PasoSolicitud() {
   }, []);
 
   const cambiar = (campo: keyof typeof VACIO) => (valor: string) => setValores((v) => ({ ...v, [campo]: valor }));
+  // Una persona jurídica (NIT) solo puede cotizar Pymes y RC.
+  const juridica = valores.tipoDocumento === "NIT";
+  const sensibles = CON_DATOS_SENSIBLES.includes(valores.ramo);
+
+  function cambiarDocumento(tipo: string) {
+    setValores((v) => ({ ...v, tipoDocumento: tipo, ramo: tipo === "NIT" ? "PYMES" : v.ramo }));
+  }
+
+  // Demostración: un cliente ficticio de Autos con documento aleatorio para no repetir solicitudes.
+  function llenarEjemplo() {
+    const documento = String(10_000_000 + Math.floor(Math.random() * 89_999_999));
+    setValores({ nombre: "Valentina Gómez Ruiz", tipoDocumento: "CC", numeroDocumento: documento, correo: "valentina.gomez@correo.example", telefono: "3104567890", ciudad: "bogota", ramo: "AUTOS" });
+    setAutoriza(true);
+    setErrores({});
+  }
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setEnviando(true);
     setMensaje("");
     try {
-      const { token } = await crearSolicitud({ ...valores, autorizaDatos: autoriza });
+      const { token } = await crearSolicitud({ ...valores, autorizaDatos: autoriza, autorizaDatosSensibles: sensibles ? autorizaSensibles : undefined });
       navegar(`/solicitud/${token}`);
     } catch (error) {
       const e = error as ErrorApi;
@@ -52,6 +82,7 @@ export function PasoSolicitud() {
         Escriba sus datos de contacto y elija el seguro que necesita. Con esta información consultamos a las aseguradoras y le
         mostramos un comparativo.
       </p>
+      <BarraDemo texto="Demostración: complete el formulario con un cliente ficticio." onLlenar={llenarEjemplo} />
       {mensaje ? <Aviso tipo="error"><p>{mensaje}</p></Aviso> : null}
       {catalogos ? (
         <form onSubmit={enviar} noValidate>
@@ -61,7 +92,7 @@ export function PasoSolicitud() {
               onChange={(e) => cambiar("nombre")(e.target.value)} error={errores.nombre} ancho />
             <div className="fila-campos">
               <Selector id="tipoDocumento" etiqueta="Tipo de documento" opciones={catalogos.tiposDocumento} value={valores.tipoDocumento}
-                onChange={(e) => cambiar("tipoDocumento")(e.target.value)} error={errores.tipoDocumento} />
+                onChange={(e) => cambiarDocumento(e.target.value)} error={errores.tipoDocumento} />
               <Campo id="numeroDocumento" etiqueta="Número de documento" inputMode="numeric" value={valores.numeroDocumento}
                 onChange={(e) => cambiar("numeroDocumento")(e.target.value)} error={errores.numeroDocumento} ayuda="Sin puntos ni espacios" />
             </div>
@@ -71,11 +102,15 @@ export function PasoSolicitud() {
               <Campo id="telefono" etiqueta="Celular o teléfono fijo" type="tel" autoComplete="tel" value={valores.telefono}
                 onChange={(e) => cambiar("telefono")(e.target.value)} error={errores.telefono} ayuda="10 dígitos, por ejemplo 3001234567" />
             </div>
+            <Selector id="ciudad" etiqueta="Ciudad" opciones={catalogos.ciudades} value={valores.ciudad}
+              onChange={(e) => cambiar("ciudad")(e.target.value)} error={errores.ciudad} />
           </fieldset>
 
           <fieldset className="seccion-formulario">
             <legend>Seguro que necesita</legend>
-            <Opciones id="ramo" etiqueta="Ramo" valor={valores.ramo} opciones={catalogos.ramos} onCambiar={cambiar("ramo")} error={errores.ramo} />
+            <Opciones id="ramo" etiqueta="Ramo" valor={valores.ramo} opciones={juridica ? catalogos.ramos.filter((r) => r.codigo === "PYMES") : catalogos.ramos}
+              onCambiar={cambiar("ramo")} error={errores.ramo} iconos={ICONOS_RAMO} detalles={DETALLE_RAMO}
+              ayuda={juridica ? "Con NIT se cotiza el seguro para empresas." : "Solo le pediremos los datos que aplican al ramo que elija."} />
           </fieldset>
 
           <fieldset className="seccion-formulario">
@@ -85,8 +120,13 @@ export function PasoSolicitud() {
               Puede conocer, actualizar o suprimir sus datos escribiendo a la agencia.
             </p>
             <Casilla id="autorizaDatos" marcada={autoriza} onCambiar={setAutoriza} error={errores.autorizaDatos}>
-              Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012.
+              Autorizo el tratamiento de mis datos personales conforme a la Ley 1581 de 2012. La agencia guarda la fecha, la hora y la versión de esta autorización.
             </Casilla>
+            {sensibles ? (
+              <Casilla id="autorizaDatosSensibles" marcada={autorizaSensibles} onCambiar={setAutorizaSensibles} error={errores.autorizaDatosSensibles}>
+                Autorizo además el tratamiento de mis datos sensibles de salud, necesarios para cotizar este seguro.
+              </Casilla>
+            ) : null}
           </fieldset>
 
           <div className="acciones">

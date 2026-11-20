@@ -1,6 +1,6 @@
 import "./Grafica.css";
 
-const COLORES = ["#1b2440", "#2f5f9e", "#8a90a0"];
+const COLORES = ["#1f5fe0", "#e3263b", "#0b1f4d"];
 
 export interface Serie {
   nombre: string;
@@ -91,7 +91,7 @@ export function GraficaBarras({ titulo, categorias, series, formato = String, ma
                 const x = inicio + j * barra;
                 return (
                   <g key={s.nombre}>
-                    <rect x={x + 1} y={M.arr + ALTO - alto} width={barra - 2} height={alto} fill={COLORES[j]} />
+                    <rect x={x + 1} y={M.arr + ALTO - alto} width={barra - 2} height={alto} rx={3} fill={COLORES[j]} className="grafica__barra" />
                     <text x={x + barra / 2} y={M.arr + ALTO - alto - 4} textAnchor="middle" className="grafica__valor">{formato(v)}</text>
                   </g>
                 );
@@ -125,7 +125,7 @@ export function GraficaLineas({ titulo, categorias, series, formato = String, ma
           return (
             <g key={s.nombre}>
               {tramos.filter((t) => t.length > 1).map((t, k) => (
-                <polyline key={k} points={t.join(" ")} fill="none" stroke={COLORES[j]} strokeWidth={2} />
+                <polyline key={k} points={t.join(" ")} fill="none" stroke={COLORES[j]} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="grafica__linea" />
               ))}
               {s.valores.map((v, i) => (v === null ? null : (
                 <g key={i}>
@@ -172,7 +172,7 @@ export function GraficaBarrasH({ titulo, categorias, valores, formato = String, 
           return (
             <g key={c}>
               <text x={izq - 8} y={y + fila / 2 + 4} textAnchor="end" className="grafica__eje grafica__categoria">{c}</text>
-              <rect x={izq} y={y + 5} width={Math.max(0, largo)} height={fila - 10} fill={sobre ? COLORES[1] : COLORES[0]} />
+              <rect x={izq} y={y + 5} width={Math.max(0, largo)} height={fila - 10} rx={3} fill={sobre ? COLORES[1] : COLORES[0]} className="grafica__barra-h" />
               <text x={izq + largo + 6} y={y + fila / 2 + 4} className="grafica__valor">{formato(valores[i])}</text>
             </g>
           );

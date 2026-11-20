@@ -1,6 +1,10 @@
 .tabla-contenedor {
   overflow-x: auto;
   margin-bottom: var(--space-4);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-100);
+  border-radius: 16px;
+  box-shadow: var(--sombra);
 }
 
 .tabla {
@@ -11,16 +15,20 @@
 
 .tabla th,
 .tabla td {
-  padding: var(--space-2) var(--space-3);
+  padding: 12px var(--space-4);
   text-align: left;
   vertical-align: top;
-  border-bottom: var(--border);
+  border-bottom: 1px solid var(--color-gray-100);
 }
 
 .tabla thead th {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-gray-600);
   background: var(--color-gray-50);
-  border-top: var(--border);
-  font-weight: 600;
+  border-bottom: 2px solid var(--color-blue-100);
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -28,8 +36,16 @@
   white-space: nowrap;
 }
 
+.tabla tbody tr {
+  transition: background-color 0.15s ease;
+}
+
 .tabla tbody tr:hover td {
-  background: var(--color-gray-50);
+  background: var(--color-blue-50);
+}
+
+.tabla tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 .tabla .numero {
@@ -85,4 +101,21 @@
 
 .cabecera-pagina h1 {
   margin: 0;
+}
+
+.tabla-contenedor {
+  transition: opacity 0.2s ease;
+}
+
+.tabla-contenedor--cargando {
+  opacity: 0.5;
+}
+
+/* Toda la fila lleva al detalle; el enlace del nombre sigue siendo el acceso por teclado. */
+.tabla--filas-enlace tbody tr {
+  cursor: pointer;
+}
+
+.tabla--filas-enlace tbody tr:hover td:first-child {
+  box-shadow: inset 4px 0 0 var(--color-red);
 }

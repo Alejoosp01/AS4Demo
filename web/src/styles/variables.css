@@ -1,24 +1,45 @@
 :root {
-  --color-navy: #1b2440;
-  --color-red: #c8322e;
-  --color-red-dark: #a52723;
+  /* Paleta AS4: azul profundo de la marca con el rojo del logotipo como acento. */
+  --color-navy: #0b1f4d;
+  --color-blue: #1f5fe0;
+  --color-blue-dark: #153f9e;
+  --color-blue-100: #c9dafb;
+  --color-blue-50: #eaf1fe;
+  --color-sky: #4fa3ff;
+  --color-green-50: #e3f6ea;
+  --color-green: #1d7a46;
+  --color-amber: #9a5b00;
+  --color-amber-50: #fff3d6;
+  /* Rojo del logotipo de AS4: acento de la marca, urgencias y errores. */
+  --color-red: #e3263b;
+  --color-red-dark: #b5172a;
+  --color-red-50: #fde8ea;
   --color-white: #ffffff;
-  --color-gray-50: #f5f6f8;
-  --color-gray-100: #eceef2;
-  --color-gray-200: #d9dce3;
-  --color-gray-400: #8a90a0;
-  --color-gray-600: #555c6d;
-  --color-green: #2f7d4f;
-  --color-amber: #9a6200;
-  --color-blue: #2f5f9e;
+  --color-fondo: #f3f6fc;
+  --color-gray-50: #f5f7fb;
+  --color-gray-100: #e8ecf4;
+  --color-gray-200: #d5dbe7;
+  --color-gray-400: #8b93a7;
+  --color-gray-600: #566078;
+  --color-text: #17213a;
 
-  --font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  --degradado-marca: linear-gradient(120deg, #0b1f4d 0%, #1f5fe0 55%, #e3263b 120%);
+  --degradado-boton: linear-gradient(135deg, #2f6df0, #153f9e);
+  --degradado-acento: linear-gradient(135deg, #ff4d5e, #c8162b);
+  --degradado-linea: linear-gradient(90deg, #1f5fe0, #4fa3ff 50%, #e3263b);
+
+  --font-titulos: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-size-base: 15px;
   --font-size-small: 14px;
-  --font-size-title: 22px;
-  --font-size-subtitle: 18px;
+  --font-size-title: 30px;
+  --font-size-subtitle: 20px;
 
-  --radius: 4px;
+  --radius: 12px;
+  --sombra: 0 1px 2px rgba(11, 31, 77, 0.06), 0 4px 14px rgba(11, 31, 77, 0.06);
+  --sombra-alta: 0 12px 32px rgba(11, 31, 77, 0.16);
+  --sombra-azul: 0 8px 22px rgba(31, 95, 224, 0.32);
+  --sombra-roja: 0 8px 22px rgba(227, 38, 59, 0.3);
   --border: 1px solid var(--color-gray-200);
 
   --space-1: 4px;
@@ -40,20 +61,54 @@ body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   line-height: 1.45;
+  color: var(--color-text);
+  background: var(--color-fondo);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-titulos);
+  font-weight: 750;
+  letter-spacing: -0.015em;
   color: var(--color-navy);
-  background: var(--color-white);
+}
+
+/* Subrayado de marca bajo el título principal de cada página. */
+h1::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 4px;
+  margin-top: 10px;
+  background: var(--degradado-linea);
+  border-radius: 2px;
+  animation: subrayado 0.6s ease-out both;
+}
+
+@keyframes subrayado {
+  from { width: 0; }
+}
+
+::selection {
+  color: var(--color-white);
+  background: var(--color-blue);
 }
 
 h1 {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-title);
-  font-weight: 600;
 }
 
 h2 {
   margin: 0 0 var(--space-3);
   font-size: var(--font-size-subtitle);
-  font-weight: 600;
+}
+
+h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 16px;
 }
 
 p {
@@ -85,5 +140,80 @@ a {
 @media print {
   .no-imprimir {
     display: none !important;
+  }
+}
+
+/* ---------- Movimiento ---------- */
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes brillo {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+/* Cada página entra con un desplazamiento corto. */
+.pagina {
+  animation: aparecer 0.35s ease-out both;
+}
+
+/* Los elementos de una lista entran uno tras otro; --i es su posición. */
+.en-cascada {
+  animation: aparecer 0.4s ease-out both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+.icono {
+  flex: none;
+  vertical-align: -4px;
+}
+
+.esqueleto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.esqueleto__bloque {
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--color-gray-50) 25%, var(--color-blue-50) 50%, var(--color-gray-50) 75%);
+  background-size: 200% 100%;
+  animation: brillo 1.4s linear infinite;
+}
+
+.girador {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: var(--space-2);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: var(--color-white);
+  border-radius: 50%;
+  animation: girar 0.7s linear infinite;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

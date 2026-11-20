@@ -1,23 +1,28 @@
 import type { ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSesion } from "../sesion/Sesion";
+import { Icono, type NombreIcono } from "./Icono";
+import { CampanaRenovaciones, ProveedorAlertaRenovaciones } from "./AlertaRenovaciones";
 import { TopBar } from "./TopBar";
 import "./LayoutInterno.css";
 
-const MENU = {
+const MENU: Record<"ASESOR" | "GERENTE", { a: string; texto: string; icono: NombreIcono; fin?: boolean }[]> = {
   ASESOR: [
-    { a: "/asesor", texto: "Bandeja de solicitudes", fin: true },
-    { a: "/asesor/renovaciones", texto: "Renovaciones" },
+    { a: "/asesor", texto: "Mi trabajo", icono: "inicio", fin: true },
+    { a: "/asesor/solicitudes", texto: "Solicitudes", icono: "lista" },
+    { a: "/asesor/renovaciones", texto: "Renovaciones", icono: "renovar" },
   ],
   GERENTE: [
-    { a: "/gerencia", texto: "Tablero", fin: true },
-    { a: "/gerencia/imparcialidad", texto: "Imparcialidad" },
+    { a: "/gerencia", texto: "Tablero", icono: "tablero", fin: true },
+    { a: "/gerencia/imparcialidad", texto: "Imparcialidad", icono: "balanza" },
+    { a: "/gerencia/renovaciones", texto: "Vencimientos", icono: "renovar" },
   ],
 };
 
 export function LayoutInterno({ children }: { children: ReactNode }) {
   const { usuario, salir } = useSesion();
   const navegar = useNavigate();
+  const { pathname } = useLocation();
   if (!usuario) return null;
 
   async function cerrar() {
@@ -26,23 +31,30 @@ export function LayoutInterno({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
-      <TopBar usuario={usuario} onSalir={cerrar} />
+    <ProveedorAlertaRenovaciones usuario={usuario}>
+      <TopBar usuario={usuario} onSalir={cerrar} extra={<CampanaRenovaciones />} />
       <div className="interno">
-        <nav className="menu" aria-label="Menú principal">
+        <nav className="menu no-imprimir" aria-label="Menú principal">
+          <p className="menu__titulo">{usuario.rol === "GERENTE" ? "Gerencia" : "Asesoría"}</p>
           <ul>
             {MENU[usuario.rol].map((item) => (
               <li key={item.a}>
-                <NavLink to={item.a} end={item.fin}>{item.texto}</NavLink>
+                <NavLink to={item.a} end={item.fin}><Icono nombre={item.icono} tamano={18} />{item.texto}</NavLink>
               </li>
             ))}
-            {usuario.rol === "ASESOR" ? (
-              <li><a href="/solicitud" target="_blank" rel="noreferrer">Nueva solicitud</a></li>
-            ) : null}
           </ul>
+          {usuario.rol === "ASESOR" ? (
+            <div className="menu__accion">
+              <NavLink className="boton boton--secundario" to="/solicitud"><Icono nombre="mas" tamano={16} />Nueva solicitud</NavLink>
+              <p>Abre el formulario del cliente para diligenciarlo con él.</p>
+            </div>
+          ) : null}
         </nav>
-        <main className="interno__contenido">{children}</main>
+        <main className="interno__contenido">
+          {/* La clave hace que la animación de entrada se repita al cambiar de página. */}
+          <div className="pagina" key={pathname}>{children}</div>
+        </main>
       </div>
-    </>
+    </ProveedorAlertaRenovaciones>
   );
 }

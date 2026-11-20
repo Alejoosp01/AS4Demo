@@ -67,10 +67,55 @@
   flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-4) var(--space-6);
-  padding-top: var(--space-4);
+  padding: var(--space-5);
   margin-bottom: var(--space-5);
-  border-top: var(--border);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-100);
+  border-radius: 20px;
+  box-shadow: var(--sombra);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
+
+.panel:hover {
+  box-shadow: var(--sombra-alta);
+}
+
+.panel > h2::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 10px;
+  vertical-align: 2px;
+  background: var(--degradado-acento);
+  border-radius: 3px;
+}
+
+/* Las barras crecen y las líneas se dibujan al aparecer; al pasar el cursor se resaltan. */
+.grafica__barra {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: barra-sube 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  transition: opacity 0.15s ease;
+}
+
+.grafica__barra-h {
+  transform-box: fill-box;
+  transform-origin: left;
+  animation: barra-derecha 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.grafica__linea {
+  stroke-dasharray: 2000;
+  animation: linea-dibuja 1.6s ease-out both;
+}
+
+svg:hover .grafica__barra { opacity: 0.55; }
+svg .grafica__barra:hover { opacity: 1; filter: drop-shadow(0 2px 4px rgba(11, 31, 77, 0.3)); }
+
+@keyframes barra-sube { from { transform: scaleY(0); } }
+@keyframes barra-derecha { from { transform: scaleX(0); } }
+@keyframes linea-dibuja { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }
 
 .panel > h2 {
   flex: 1 0 100%;
@@ -97,4 +142,24 @@
 
 .panel__tabla .tabla-contenedor {
   margin-bottom: 0;
+}
+
+.panel {
+  animation: aparecer 0.45s ease-out both;
+}
+
+.panel:nth-of-type(2) { animation-delay: 70ms; }
+.panel:nth-of-type(3) { animation-delay: 140ms; }
+.panel:nth-of-type(4) { animation-delay: 210ms; }
+.panel:nth-of-type(5) { animation-delay: 280ms; }
+.panel:nth-of-type(6) { animation-delay: 350ms; }
+
+.grafica rect,
+.grafica circle {
+  transition: opacity 0.15s ease;
+}
+
+.grafica rect:hover,
+.grafica circle:hover {
+  opacity: 0.75;
 }

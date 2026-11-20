@@ -11,6 +11,14 @@ export async function ingresar(page: Page, usuario: { correo: string; clave: str
   await page.getByLabel("Contraseña").fill(usuario.clave);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page.getByRole("button", { name: "Salir" })).toBeVisible();
+  await cerrarAvisoRenovaciones(page);
+}
+
+/** Al entrar aparece la ventana de pólizas por vencer (una vez por sesión); se cierra para seguir. */
+export async function cerrarAvisoRenovaciones(page: Page) {
+  const aviso = page.getByRole("dialog", { name: /vencen? en los próximos 30 días/ });
+  await aviso.waitFor({ state: "visible", timeout: 3000 }).catch(() => undefined);
+  if (await aviso.isVisible()) await aviso.getByRole("button", { name: "Recordármelo después" }).click();
 }
 
 const SARLAFT = {
@@ -26,7 +34,7 @@ const SARLAFT = {
 export async function solicitudCotizada(request: APIRequestContext, nombre: string) {
   const documento = String(Date.now()).slice(-10) + String(Math.floor(Math.random() * 10));
   const creada = await request.post("/api/solicitudes", {
-    data: { nombre, tipoDocumento: "CC", numeroDocumento: documento, correo: "prueba@correo.example", telefono: "3001112233", ramo: "AUTOS", autorizaDatos: true },
+    data: { nombre, tipoDocumento: "CC", numeroDocumento: documento, correo: "prueba@correo.example", telefono: "3001112233", ciudad: "medellin", ramo: "AUTOS", autorizaDatos: true },
   });
   expect(creada.ok()).toBeTruthy();
   const { token } = await creada.json();
@@ -36,4 +44,15 @@ export async function solicitudCotizada(request: APIRequestContext, nombre: stri
   expect(cotizada.ok()).toBeTruthy();
   const vista = await cotizada.json();
   return { token, id: vista.id as number, documento, ofertas: vista.ofertas as { id: number; aseguradoraNombre: string }[] };
+}
+
+/** Lleva una solicitud cotizada hasta la póliza emitida: elección, firma con código y pago. */
+export async function polizaEmitida(request: APIRequestContext, nombre: string) {
+  const s = await solicitudCotizada(request, nombre);
+  const eleccion = await request.post(`/api/solicitudes/${s.token}/eleccion`, { data: { ofertaId: s.ofertas[0].id } });
+  const { aceptacion } = await eleccion.json();
+  await request.post(`/api/solicitudes/${s.token}/confirmacion`, { data: { codigo: aceptacion.codigo } });
+  const pago = await request.post(`/api/solicitudes/${s.token}/pago`, { data: { formaPago: "CONTADO" } });
+  expect(pago.ok()).toBeTruthy();
+  return { ...s, poliza: (await pago.json()).poliza as { numero: string } };
 }

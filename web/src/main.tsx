@@ -2,12 +2,18 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
+import { ProveedorAvisos } from "./components/Avisos";
+import { activarOndas } from "./efectos";
 import "./styles/variables.css";
+
+activarOndas();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <ProveedorAvisos>
+        <App />
+      </ProveedorAvisos>
     </BrowserRouter>
   </StrictMode>,
 );

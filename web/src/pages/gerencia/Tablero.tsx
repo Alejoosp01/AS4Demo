@@ -8,6 +8,7 @@ import { GraficaBarras, GraficaBarrasH, GraficaLineas } from "../../components/G
 import { FiltrosPeriodo, porcentaje, useCatalogos, useFiltrosPeriodo } from "./Filtros";
 import "../../components/Grafica.css";
 import "../../components/Tabla.css";
+import "../asesor/Asesor.css";
 
 const RAMOS: Ramo[] = ["AUTOS", "SALUD", "VIDA", "HOGAR", "PYMES"];
 
@@ -37,14 +38,15 @@ export function Tablero() {
   }, [meses, ramo]);
 
   const nombreRamo = (r: string) => (catalogos ? nombreDe(catalogos.ramos, r) : r);
-  const nombreMotivo = (m: string) => (catalogos ? nombreDe(catalogos.motivosNoInteres, m) : m);
+  const nombreMotivo = (m: string) => (m === "DATOS_INCOMPLETOS" ? "Datos incompletos (cierre automático)" : catalogos ? nombreDe(catalogos.motivosNoInteres, m) : m);
 
   return (
     <>
-      <div className="cabecera-pagina">
+      <header className="bienvenida">
+        <span className="bienvenida__fecha">{datos ? (ramo ? nombreRamo(ramo) : "Todos los ramos") : "Cargando…"}</span>
         <h1>Tablero de gestión</h1>
-        {datos ? <span className="texto-secundario">{ramo ? nombreRamo(ramo) : "Todos los ramos"}</span> : null}
-      </div>
+        <p>Las seis variables del proceso TO-BE por ramo y por mes. Pase el cursor por las barras para resaltarlas y use los filtros para cambiar el periodo.</p>
+      </header>
       <FiltrosPeriodo catalogos={catalogos} />
       {error ? <Aviso tipo="error"><p>{error}</p></Aviso> : null}
       {!datos ? (error ? null : <p className="texto-secundario">Cargando el tablero…</p>) : (() => {

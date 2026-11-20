@@ -1,23 +1,26 @@
 .campo {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 6px;
   margin-bottom: var(--space-4);
-  max-width: 420px;
+  max-width: 440px;
 }
 
 .campo--ancho {
-  max-width: 640px;
+  max-width: 660px;
 }
 
 .campo label,
 .grupo-opciones legend {
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--color-navy);
 }
 
 .campo__ayuda {
+  order: 3;
   margin: 0;
-  font-size: var(--font-size-small);
+  font-size: 13px;
   color: var(--color-gray-600);
 }
 
@@ -25,50 +28,113 @@
 .campo select,
 .campo textarea {
   width: 100%;
-  min-height: 38px;
-  padding: 7px 10px;
+  min-height: 46px;
+  padding: 10px 14px;
   font: inherit;
-  color: var(--color-navy);
-  background: var(--color-white);
-  border: 1px solid var(--color-gray-400);
-  border-radius: var(--radius);
+  color: var(--color-text);
+  background: var(--color-gray-50);
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: 12px;
+}
+
+.campo select {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231f5fe0' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+.campo input:hover,
+.campo select:hover,
+.campo textarea:hover {
+  border-color: var(--color-blue-100);
+  background-color: var(--color-white);
+}
+
+.campo input:focus,
+.campo select:focus,
+.campo textarea:focus {
+  background-color: var(--color-white);
+  border-color: var(--color-blue);
+  box-shadow: 0 0 0 4px rgba(31, 95, 224, 0.14);
+  outline: none;
+}
+
+/* Un campo lleno y válido se marca con un borde azul suave. */
+.campo:not(.campo--error) input:not(:placeholder-shown):not(:focus):valid {
+  border-color: var(--color-blue-100);
+  background-color: var(--color-white);
+}
+
+.campo:focus-within label {
+  color: var(--color-blue);
 }
 
 .campo textarea {
-  min-height: 90px;
+  min-height: 100px;
   resize: vertical;
 }
 
 .campo--error input,
 .campo--error select,
-.campo--error textarea,
-.grupo-opciones--error {
+.campo--error textarea {
   border-color: var(--color-red);
+  background-color: var(--color-red-50);
+  animation: sacudir-campo 0.35s ease;
+}
+
+.grupo-opciones--error .grupo-opciones__lista {
+  padding: 6px;
+  border: 1.5px dashed var(--color-red);
+  border-radius: 14px;
 }
 
 .campo__error {
+  order: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
-  font-size: var(--font-size-small);
-  color: var(--color-red);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-red-dark);
+  animation: aparecer 0.25s ease-out both;
+}
+
+.campo__error::before {
+  content: "!";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-white);
+  background: var(--color-red);
+  border-radius: 50%;
 }
 
 .grupo-opciones {
   margin: 0 0 var(--space-4);
   padding: 0;
   border: 0;
-  max-width: 640px;
+  max-width: 760px;
 }
 
 .grupo-opciones legend {
   padding: 0;
-  margin-bottom: var(--space-1);
+  margin-bottom: 6px;
 }
 
 .grupo-opciones__lista {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin-top: var(--space-1);
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .opcion {
@@ -78,19 +144,157 @@
   cursor: pointer;
 }
 
+/* Las opciones de un grupo se ven como píldoras que se pueden pulsar. */
+.grupo-opciones__lista .opcion {
+  align-items: center;
+  padding: 9px 16px 9px 12px;
+  font-weight: 600;
+  color: var(--color-navy);
+  background: var(--color-white);
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: 999px;
+  transition: all 0.18s ease;
+}
+
+.grupo-opciones__lista .opcion:hover {
+  border-color: var(--color-blue);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(31, 95, 224, 0.12);
+}
+
+.grupo-opciones__lista .opcion:has(input:checked) {
+  color: var(--color-white);
+  background: var(--degradado-boton);
+  border-color: transparent;
+  box-shadow: var(--sombra-azul);
+}
+
+.grupo-opciones__lista .opcion:has(input:focus-visible) {
+  outline: 2px solid var(--color-blue);
+  outline-offset: 2px;
+}
+
 .opcion input {
   width: 18px;
   height: 18px;
   margin: 2px 0 0;
-  accent-color: var(--color-navy);
+  accent-color: var(--color-blue);
   flex: none;
+}
+
+.grupo-opciones__lista .opcion input {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  background: var(--color-white);
+  border: 2px solid var(--color-gray-400);
+  border-radius: 50%;
+}
+
+.grupo-opciones__lista .opcion input::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--color-blue);
+  border-radius: 50%;
+  transform: scale(0);
+  transition: transform 0.18s ease;
+}
+
+.grupo-opciones__lista .opcion input:checked {
+  border-color: var(--color-white);
+}
+
+.grupo-opciones__lista .opcion input:checked::after {
+  transform: scale(1);
+}
+
+/* Variante con tarjetas e íconos (por ejemplo, el ramo del seguro). */
+.grupo-opciones--tarjetas .grupo-opciones__lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.grupo-opciones--tarjetas .grupo-opciones__lista .opcion {
+  position: relative;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: 16px;
+  min-height: 118px;
+}
+
+.grupo-opciones--tarjetas .grupo-opciones__lista .opcion input {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.opcion__icono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  color: var(--color-blue);
+  background: var(--color-blue-50);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.opcion:hover .opcion__icono {
+  transform: rotate(-6deg) scale(1.06);
+}
+
+.opcion:has(input:checked) .opcion__icono {
+  color: var(--color-red);
+  background: var(--color-white);
+}
+
+.opcion__detalle {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  opacity: 0.8;
 }
 
 .casilla {
   margin-bottom: var(--space-4);
-  max-width: 640px;
+  max-width: 680px;
+}
+
+.casilla .opcion {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-gray-50);
+  border: 1.5px solid var(--color-gray-200);
+  border-radius: 14px;
+  transition: all 0.18s ease;
+}
+
+.casilla .opcion:hover {
+  border-color: var(--color-blue-100);
+}
+
+.casilla .opcion:has(input:checked) {
+  background: var(--color-blue-50);
+  border-color: var(--color-blue);
+}
+
+.casilla .opcion input {
+  width: 20px;
+  height: 20px;
 }
 
 .casilla--error .opcion {
-  color: var(--color-red);
+  color: var(--color-red-dark);
+  background: var(--color-red-50);
+  border-color: var(--color-red);
+}
+
+@keyframes sacudir-campo {
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
 }
